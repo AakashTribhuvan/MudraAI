@@ -1,0 +1,27 @@
+
+Expectations:
+We want to create a AI based platform that uses a phone camera as input source and converts the sign language performed on it into text that it speaks out at a later min Here is the proper problem statement for this.
+
+Problem Statement: "Smart Sign Language Learning & Real-Time Translation App for Deaf & Mute Students" addressing the lack of accessible tools for deaf/mute students to learn and communicate via sign language. Objective: Build a real-time computer-vision system that recognises sign language gestures and translates them, plus a learning-mode component for students. Description: This is a real-time gesture/pose-recognition computer-vision task - video frames in, recognised sign or letter out. The real-time constraint (low latency) is the main technical challenge; the recognition model itself can be built on existing public datasets, which keeps this feasible within two days. Uses a standard laptop/phone camera no specialised hardware required.
+
+Now for what we are to do. We wont try to tackle everything at once, I will give a list of things we need to achieve or our ideas and i first want you to create a MD file called workflow and we will go step by step to execute this workflow till we achieve our desired results. think of yourself as a professional coder, engineer, inventor, problem solver, and whatever else that is necessary to properly reason and achieve our goals.
+
+Backend:
+Video Data Extractor-> using media pipe and open cv take a full list of videos and use it as training data i.e. take out the hand tracking data out of it to train the isl model.
+- use good hand tracking and timestamps as sign language is complex.
+- data should be stored in a format that can be easily used to train models
+- trained model should know when an action starts by the user and when next one is transitioned into. 
+- This is an extremely sensitive step so reason hard as to how we should approach this as bad data will inturn ruin our future model and such.
+-  There should also be a well thought consolidated list that stores all the mapping of the data to the data file they were created using for referrence and training.
+A way to train the data into a model file-> that can be used like media pipe to track hands and stuff I know what to do but i want a more efficient approach that makes more sense and is more practical.
+- The produced AI model should be able to be used easily and preferably work in a website so we can make it work on mobiles, laptops and any other devices provided enough time etc.
+- There should also be ability to train the thing to identify singular poses from single images to store hardcoded words that might otherwise not exist in the ISL vocab.
+- Additionally there should be a good interface on the website to do this easier for everyone.
+Way to select what files are being used for training-> while its not necessary for the final product as this is a demo of our technical skills its nicer to have things like that on the same website in a different tab so everything can be presented at once.
+Video To Text To Speech Pipeline: We want to go from Sign language to text and then convert that text to speech using murf falcon or pyttsx tts. 
+Speech To Text To Video Pipeline: So when a speaker speaks like a news anchor or such we see an ai avatar recreate its action (probablhy one of the last things we do in the workflow) we can use a 3d model from mixamo and move its bones using three js or something similar that is made for that workcase. 
+A Duolingo Type Learning platform that displays sign language using the avatar and has the user type in text what they understand to help them learn sign language, and also speak text that user has to sign to the camera. that helps them learn everything fr fr.
+
+Front End: 
+A decently polished interface to be made while we are developi gnit we will additionally make our own interface in figma and give it to you later to integrate so the one we make right now should be way more functionality focussed than looks focussed. 
+
