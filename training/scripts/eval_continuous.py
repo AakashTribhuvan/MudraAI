@@ -228,7 +228,7 @@ def objective(m):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", default="app/backend/models/isl_mudra_combined_v8_desk_bilstm")
+    ap.add_argument("--model", default="app/backend/models/isl_mudra_combined_v9_bilstm")
     ap.add_argument("--split", required=True)
     ap.add_argument("--tune", action="store_true")
     ap.add_argument("--tune-threshold-only", action="store_true", help="keep saved segmenter settings, tune only the threshold")

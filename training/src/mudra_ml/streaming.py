@@ -34,6 +34,9 @@ class SegmenterConfig:
     buffer_s: float = 12.0
     commit_threshold: float | None = None  # whole-sign confidence needed to add a word (None = model card value)
     margin: float = 0.0  # top-1 must beat top-2 by this much (look-alike signs become "uncertain")
+    # "I don't know this sign": a confident word whose embedding is outside that word's training boundary
+    # (KnownWordBoundaries, model_dir/known_boundaries.npz) becomes "uncertain". None = off.
+    known_boundary_k: float | None = None
     tta: int = 1  # smoothing: classify this many slightly different cuts of the sign and average them
     cooldown_s: float = 1.0  # the same word is not added again within this time (double triggers)
     provisional_s: float = 0.5  # while signing, send a live guess this often (UI only, never committed)
@@ -222,6 +225,19 @@ class ModelBundle:
         self.model = build_model(ModelConfig.from_dict(card["model_config"]))
         self.model.load_state_dict(torch.load(Path(model_dir) / "model.pt", map_location=self.device, weights_only=True))
         self.model.to(self.device).eval()
+        boundaries = Path(model_dir) / "known_boundaries.npz"
+        self.known_boundaries_path = boundaries if boundaries.exists() else None
+        self._known: dict[float, object] = {}
+
+    def known_boundaries(self, k: float):
+        """KnownWordBoundaries at strictness k (cached), or None when the model has no known_boundaries.npz."""
+        if self.known_boundaries_path is None:
+            return None
+        if k not in self._known:
+            from mudra_ml.fewshot import KnownWordBoundaries
+
+            self._known[k] = KnownWordBoundaries.load(self.known_boundaries_path, k)
+        return self._known[k]
 
     def _features(self, seqs: list[LandmarkSequence], width: int, height: int) -> torch.Tensor:
         feats = []
@@ -242,10 +258,10 @@ class ModelBundle:
 
     @torch.no_grad()
     def probs_and_embeddings(self, seqs: list[LandmarkSequence], width: int, height: int) -> tuple[np.ndarray, np.ndarray]:
-        emb = self.model.encode(self._features(seqs, width, height))
-        logits = self.model.head(emb).float().cpu().numpy() / self.temperature
+        z = self.model.encode(self._features(seqs, width, height))
+        logits = self.model.head(z).float().cpu().numpy() / self.temperature
         p = np.exp(logits - logits.max(axis=1, keepdims=True))
-        return p / p.sum(axis=1, keepdims=True), emb.float().cpu().numpy()
+        return p / p.sum(axis=1, keepdims=True), self.model.embedding_from(z).float().cpu().numpy()
 
     def decide(self, p: np.ndarray, top_k: int = 3, threshold: float | None = None, margin: float = 0.0) -> dict:
         """Whole-sign decision: background -> no_sign; below threshold -> uncertain; else ok."""
@@ -274,6 +290,8 @@ class StreamingRecognizer:
         self.segmenter = SignSegmenter(cfg, width, height)
         self.cfg = cfg
         self.threshold = cfg.commit_threshold if cfg.commit_threshold is not None else bundle.threshold
+        # the "I don't know this sign" barrier, only when configured and built for this model
+        self.known = bundle.known_boundaries(cfg.known_boundary_k) if cfg.known_boundary_k is not None else None
         self.last_word: tuple[str, float] | None = None
         self.last_provisional = -1e9
 
@@ -297,6 +315,8 @@ class StreamingRecognizer:
         probs, emb = self.bundle.probs_and_embeddings(cuts, self.width, self.height)
         probs = probs.mean(axis=0)  # smoothing over cuts
         result = self.bundle.decide(probs, threshold=self.threshold, margin=self.cfg.margin)
+        if result["status"] == "ok" and self.known is not None and not self.known.inside(result["sign"], emb.mean(axis=0)):
+            result = {**result, "status": "uncertain", "sign": None, "reason": "outside_word_boundary"}
         if self.custom is not None and len(self.custom):
             result = self.custom.decide(emb.mean(axis=0), result) or result
         if result["status"] == "ok":

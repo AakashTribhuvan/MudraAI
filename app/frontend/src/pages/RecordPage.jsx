@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Camera, CameraOff, Circle, CheckCircle2, AlertCircle, Trash2, Info, Users, Sparkles, Database } from 'lucide-react'
+import { readableSign } from '../services/islDictionary'
 import handTracker from '../services/handTracker'
 import signRecognizer, { toFrame } from '../services/signRecognizer'
 import { listRecordings, saveRecording, deleteRecording } from '../services/recordingClient'
@@ -23,6 +24,29 @@ const QUALITY_MESSAGES = {
   too_short: 'The recording was too short. Try again.',
   low_hand_detection: 'Your hands were out of view most of the time. Step back so both hands stay in the frame.',
   no_pose: 'Your shoulders were not visible. Step back so your upper body is in the frame.'
+}
+
+/**
+ * Barrier checks for one recorded word (GET /recordings "quality"): takes that agree, takes left out,
+ * the nearest other taught word, and which known word the trained model reads the takes as.
+ */
+function WordQuality({ q, readable }) {
+  if (!q) return null
+  const notes = []
+  if (q.looks_like) notes.push(`The model reads ${q.looks_like.takes} of these takes as "${readable(q.looks_like.sign)}". Check the sign, or record it more distinctly.`)
+  if (q.too_close && q.nearest) notes.push(`Very close to "${readable(q.nearest)}" (${Math.round(q.nearest_similarity * 100)}% alike), so the two can be mixed up. Record clearer, more varied takes of both.`)
+  if (q.consistency != null && q.consistency < 0.7) notes.push(`The takes differ a lot (${Math.round(q.consistency * 100)}% alike). Record a few more, signed the same way.`)
+  if (q.left_out?.length) notes.push(`${q.left_out.length} take(s) did not match the others and are left out.`)
+  return (
+    <div className="space-y-1 text-xs">
+      {q.consistency != null && <p className="text-mudra-indigo-600">Takes agree: {Math.round(q.consistency * 100)}%</p>}
+      {notes.map((n) => (
+        <p key={n} className="flex items-start gap-1 rounded-md bg-amber-50 px-2 py-1 text-amber-900">
+          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" /> {n}
+        </p>
+      ))}
+    </div>
+  )
 }
 
 export default function RecordPage() {
@@ -257,6 +281,7 @@ export default function RecordPage() {
                           ? 'New word active: try it on the Communicate page.'
                           : 'Saved for training.'}
                     </p>
+                    <WordQuality q={lastResult.saved.quality} readable={readableSign} />
                   </>
                 )}
                 {lastResult.saved && !lastResult.ok && (
@@ -271,6 +296,10 @@ export default function RecordPage() {
             <li>Press Record and keep your hands down during the countdown.</li>
             <li>Sign the word once, at normal speed, then lower your hands.</li>
           </ol>
+          <p className="text-xs text-mudra-indigo-600">
+            {TARGET_PER_WORD} takes make a word work for you straight away. For the trained model, aim for 10-15 takes from at
+            least 3 different people, on different days.
+          </p>
         </div>
 
         <div className="lg:col-span-5 space-y-6">
@@ -361,12 +390,13 @@ export default function RecordPage() {
                     <Users className="w-3 h-3" /> {s.signers.length ? s.signers.join(', ') : 'no usable recordings'}
                     {s.rejected > 0 && ` · ${s.rejected} not usable`}
                   </p>
+                  <WordQuality q={s.quality} readable={readableSign} />
                   <div className="flex flex-wrap gap-1">
                     {s.items.map((it, i) => (
                       <span
                         key={it.sample_id}
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs ${it.quality_flag ? 'bg-amber-50 text-amber-800' : 'bg-mudra-lavender-50 text-mudra-indigo-800'}`}
-                        title={it.quality_flag ? QUALITY_MESSAGES[it.quality_flag] : `${it.signer}, ${it.duration_s.toFixed(1)} s`}
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs ${it.quality_flag || s.quality?.left_out?.includes(it.sample_id) ? 'bg-amber-50 text-amber-800' : 'bg-mudra-lavender-50 text-mudra-indigo-800'}`}
+                        title={it.quality_flag ? QUALITY_MESSAGES[it.quality_flag] : s.quality?.left_out?.includes(it.sample_id) ? 'Left out: does not match the other takes' : `${it.signer}, ${it.duration_s.toFixed(1)} s`}
                       >
                         #{i + 1}
                         <button onClick={() => handleDelete(it.sample_id)} aria-label={`Delete recording ${i + 1} of ${s.label}`} className="hover:text-red-600">

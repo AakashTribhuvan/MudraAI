@@ -13,12 +13,13 @@ Only body and hand landmark coordinates leave the browser, never camera images.
 **Taking over the project (people or AI models): read [`HANDOVER.md`](HANDOVER.md) first.** It is
 updated at every push and documents the architecture, interfaces, data, models and open problems.
 
-## Status (16 Oct 2026)
+## Status (18 Oct 2026)
 
 | Area | State |
 |---|---|
 | Web app (Home, Communication, Learning, Game Mode, Progress, Teach a sign, Settings; Admin pages) | Working; avatar demonstrates 26 letters and 13 words; installable on phones (web app manifest) |
-| Recognition model | `isl_mudra_combined_v8_desk_bilstm`: 314 words + "no sign"; also trained with hands resting in view and low camera frame rates (the numbers below are for the previous model, v6; v8 is in HANDOVER Section 14) |
+| Recognition model | `isl_mudra_combined_v9_bilstm`: 314 words + "no sign"; v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
+| Barriers between words | Taught words get their own boundary so look-alike words are not mixed up; *Teach a sign* warns about inconsistent takes and look-alike words. Measured with 150 taught words: mix-ups 7.0% → 5.0%. See [`docs/SCALING_VOCABULARY.md`](docs/SCALING_VOCABULARY.md) |
 | Live recognition (Communication) | *Words*: sign start/end detection, automatic word adding, spoken sentence, "How to sign it" examples; *Spell* and *Phrase* modes (below) |
 | New words from the Teach a sign page | Work immediately (few-shot), stored for retraining |
 | Data pipeline | MediaPipe landmarks, leakage-safe splits, label audit |
@@ -190,7 +191,7 @@ python training/scripts/eval_continuous.py --model app/backend/models/<model> \
 
 `mudra_words.yaml` reproduces the deployed model (about 45 minutes on an RTX 5060).
 Letters and phrases are rebuilt with the steps in `docs/SIGN_LIBRARY.md`.
-Tests: `pytest training app/backend/tests` (104) and `npm test` in `app/frontend` (15).
+Tests: `pytest training app/backend/tests` (109) and `npm test` in `app/frontend` (15).
 
 ## Data and licences
 

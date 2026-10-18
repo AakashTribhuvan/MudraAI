@@ -2,7 +2,8 @@
 
 1. **Read `HANDOVER.md` first.** It is the single source of truth: architecture, interfaces, data,
    models, results, open problems, the recommended next steps (top of Section 16) and the decision
-   history. Feature documents: `docs/SIGN_LIBRARY.md` (letters, phrases) and `docs/SIGNLINE_EMERGENCY.md`.
+   history. Feature documents: `docs/SIGN_LIBRARY.md` (letters, phrases), `docs/SIGNLINE_EMERGENCY.md` and
+   `docs/SCALING_VOCABULARY.md` (barriers between words, retraining with recorded words).
 2. **Update `HANDOVER.md` in every push** (its Section 0 lists which sections to touch for which
    change). Add a change-log entry at the top of Section 21 with date, commits, what changed, why,
    and the measured effect with the split it was measured on. The pre-push hook in `.githooks/`

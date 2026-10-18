@@ -1,0 +1,10 @@
+# Same as fewshot_scale_ce.yaml with the additive-margin cosine head ("barrier" between words).
+#     python training/scripts/train.py --config fewshot_scale_cos.yaml --name fewshot_scale_cos
+base: fewshot_scale_ce.yaml
+
+model:
+  head: cosine
+  cos_scale: 30.0
+  cos_margin: 0.25
+train:
+  label_smoothing: 0.0   # the margin already keeps the classes apart

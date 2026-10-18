@@ -170,7 +170,7 @@ def run_experiment(cfg: dict, output_root: Path | None = None) -> dict:
                 x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device.type, dtype=torch.float16, enabled=use_amp):
-                    logits = model(x)
+                    logits = model(x, y)  # labels only matter for a margin head
                     loss = criterion(logits, y)
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)

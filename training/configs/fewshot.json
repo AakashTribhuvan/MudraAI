@@ -1,5 +1,7 @@
 {
   "min_similarity": 0.6,
   "max_model_confidence": 0.95,
-  "margin": 0.0
+  "margin": 0.0,
+  "radius_k": 2.0,
+  "outlier_z": null
 }

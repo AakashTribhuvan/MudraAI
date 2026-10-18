@@ -5,6 +5,12 @@
     temporal = "transformer"  Landmark MLP + Transformer encoder (comparison)
 
 Logits are returned (no softmax) for use with CrossEntropyLoss.
+
+    head = "linear"   LayerNorm -> Dropout -> Linear (all models up to v8)
+    head = "cosine"   additive-margin cosine head (CosFace): logits = s * cos(angle to the class), and during
+                      training the true class's cosine is reduced by m. Every word must then win by a margin,
+                      which pushes words apart in the embedding space (the "barrier" between words); the same
+                      normalised embeddings are what custom-word prototypes are matched against.
 """
 
 from __future__ import annotations
@@ -32,6 +38,9 @@ class ModelConfig:
     tf_ff: int = 384
     max_len: int = 128
     dropout: float = 0.3
+    head: str = "linear"
+    cos_scale: float = 30.0
+    cos_margin: float = 0.25
 
     @classmethod
     def from_dict(cls, values: dict) -> ModelConfig:
@@ -53,6 +62,27 @@ class AttentionPool(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         weights = torch.softmax(self.score(x).squeeze(-1), dim=1)
         return torch.einsum("bt,btd->bd", weights, x)
+
+
+class CosineMarginHead(nn.Module):
+    def __init__(self, dim: int, num_classes: int, scale: float, margin: float, dropout: float):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.drop = nn.Dropout(dropout)
+        self.weight = nn.Parameter(torch.empty(num_classes, dim))
+        nn.init.xavier_uniform_(self.weight)
+        self.scale, self.margin = scale, margin
+
+    def features(self, z: torch.Tensor) -> torch.Tensor:
+        """The embedding the classes are compared with (unit length)."""
+        return nn.functional.normalize(self.norm(z), dim=-1)
+
+    def forward(self, z: torch.Tensor, labels: torch.Tensor | None = None) -> torch.Tensor:
+        f = nn.functional.normalize(self.drop(self.norm(z)), dim=-1)
+        cos = f @ nn.functional.normalize(self.weight, dim=-1).T
+        if labels is not None and self.margin:
+            cos = cos - self.margin * nn.functional.one_hot(labels, cos.shape[1]).to(cos.dtype)
+        return self.scale * cos
 
 
 class SequenceClassifier(nn.Module):
@@ -88,7 +118,12 @@ class SequenceClassifier(nn.Module):
             raise ValueError(f"Unknown temporal model {cfg.temporal!r}")
 
         self.pool = AttentionPool(out_dim) if self.temporal is not None else None
-        self.head = nn.Sequential(nn.LayerNorm(out_dim), nn.Dropout(cfg.dropout), nn.Linear(out_dim, cfg.num_classes))
+        if cfg.head == "cosine":
+            self.head = CosineMarginHead(out_dim, cfg.num_classes, cfg.cos_scale, cfg.cos_margin, cfg.dropout)
+        elif cfg.head == "linear":
+            self.head = nn.Sequential(nn.LayerNorm(out_dim), nn.Dropout(cfg.dropout), nn.Linear(out_dim, cfg.num_classes))
+        else:
+            raise ValueError(f"Unknown head {cfg.head!r}")
 
     def encode(self, landmarks: torch.Tensor) -> torch.Tensor:
         """[B, T, D] -> pooled sequence representation [B, out_dim]."""
@@ -103,8 +138,16 @@ class SequenceClassifier(nn.Module):
             x = self.temporal(x)
         return self.pool(x)
 
-    def forward(self, landmarks: torch.Tensor) -> torch.Tensor:
-        return self.head(self.encode(landmarks))
+    def embedding_from(self, z: torch.Tensor) -> torch.Tensor:
+        """Embedding used for custom-word prototypes: the cosine head's unit features, else the pooled output."""
+        return self.head.features(z) if isinstance(self.head, CosineMarginHead) else z
+
+    def forward(self, landmarks: torch.Tensor, labels: torch.Tensor | None = None) -> torch.Tensor:
+        """labels (training only) apply the cosine head's margin; ignored by the linear head."""
+        z = self.encode(landmarks)
+        if isinstance(self.head, CosineMarginHead):
+            return self.head(z, labels)
+        return self.head(z)
 
 
 def build_model(cfg: ModelConfig) -> SequenceClassifier:

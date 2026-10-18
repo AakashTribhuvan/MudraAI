@@ -118,6 +118,13 @@ export default function CommunicatePage() {
   const [vocabOpen, setVocabOpen] = useState(false)
   const [referenceSign, setReferenceSign] = useState(null) // word whose training example is shown
   // Words (trained word model, automatic) | Spell (fingerspelling letters) | Phrase (choose from top guesses)
+  // "Next word" cue: a word was just added, so the next sign can start (a clear pause between words)
+  const [nextCue, setNextCue] = useState(null)
+  useEffect(() => {
+    if (!nextCue) return undefined
+    const t = setTimeout(() => setNextCue(null), 1400)
+    return () => clearTimeout(t)
+  }, [nextCue])
   const [inputMode, setInputMode] = useState('words')
   const inputModeRef = useRef('words')
   const [libraryModels, setLibraryModels] = useState({})
@@ -209,7 +216,10 @@ export default function CommunicatePage() {
         metadata: added ? findISLLexiconItem(added.sign) : null
       })
       // The server classified one complete sign (start -> end), so each sign adds at most one word
-      if (added) commitToken(added.sign)
+      if (added) {
+        commitToken(added.sign)
+        setNextCue({ label: added.label || readableSign(added.sign), at: Date.now() })
+      }
       // Unsure: the other likely words can replace the one just added (optional, nothing to click otherwise)
       setSuggestions(unsure ? (p.top_k || []).slice(1, 3) : [])
     }
@@ -706,6 +716,13 @@ export default function CommunicatePage() {
                 height={480}
                 className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none"
               />
+
+              {cameraActive && nextCue && inputMode === 'words' && (
+                <div key={nextCue.at} role="status"
+                     className="sl-motion absolute left-1/2 top-4 z-30 -translate-x-1/2 animate-sl-fade-up rounded-full border-2 border-sl-ink bg-sl-green px-4 py-1.5 text-sm font-extrabold text-sl-ink shadow-sl-sm">
+                  ✓ Added “{nextCue.label}”: next word
+                </div>
+              )}
 
               {!cameraActive && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-0">

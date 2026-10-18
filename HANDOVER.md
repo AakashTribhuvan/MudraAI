@@ -6,12 +6,12 @@
 
 | Field | Value |
 |---|---|
-| Document version | 8 |
-| Last updated | 2026-10-16 (system date; the previous entry was dated 10-17 although its commit b5e2da8 is of 2026-10-16) |
-| Last updated at commit | docs update after `08dd74f` (Section 21) |
-| Deployed models | words: `app/backend/models/isl_mudra_combined_v8_desk_bilstm` (314 words + `_BACKGROUND_`); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99) |
+| Document version | 9 |
+| Last updated | 2026-10-18 |
+| Last updated at commit | the v9 + barriers commit of 2026-10-18 (Section 21) |
+| Deployed models | words: `app/backend/models/isl_mudra_combined_v9_bilstm` (314 words + `_BACKGROUND_`; v8 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
-| Tests | 104 backend passing (`pytest training app/backend/tests`: 69 + 6 sign library + 29 SignLine Emergency; data-dependent tests skip without `data/metadata`) + 15 frontend (`npm test` in `app/frontend`) |
+| Tests | 109 backend passing (`pytest training app/backend/tests`: 74 + 6 sign library + 29 SignLine Emergency; data-dependent tests skip without `data/metadata`) + 15 frontend (`npm test` in `app/frontend`) |
 | Repository | `https://github.com/Addy-coder786/Mudra` (remote `mudra`); older pushes: `Addy-coder786/ISL_Addy` (remote `origin`) |
 | Overall state | Recognition is accurate on new takes by **signers seen in training**; accuracy for new people is unmeasured (about 67% on unseen recording sessions); **live use on a real laptop webcam is not yet reliable** (Section 16). Audit: `docs/AUDIT_2026-10-13.md` |
 
@@ -51,7 +51,8 @@
 1. Read Sections 1, 2 and 16 to know what works, what does not and what is next, and the current
    blueprint (`docs/blueprints/`, now v1.1) for the target and the milestone being worked on.
 2. Read Sections 4-10 before touching runtime code, and 11-13 before touching training or claims.
-   Feature documents: `docs/SIGN_LIBRARY.md` (letters, phrases), `docs/SIGNLINE_EMERGENCY.md` (SOS assistant).
+   Feature documents: `docs/SIGN_LIBRARY.md` (letters, phrases), `docs/SIGNLINE_EMERGENCY.md` (SOS assistant),
+   `docs/SCALING_VOCABULARY.md` (barriers between words, v9, how to grow to 400-500 words).
    The recommended next steps are at the top of Section 16.
 3. Never report a metric that is not in this document or produced by a script in this repo
    (Section 19). Numbers here are **held-out test** numbers unless labelled otherwise.
@@ -136,7 +137,9 @@ build a sentence and speak it.
 | **SignLine Emergency** (SOS circle, bottom-right of every page) | **Prototype, demo mode** | buttons / simulated signs / personal gestures → rule-based report with provenance → user confirms → mock delivery to an in-app responder desk; contacts no one; 29 tests; checked in desktop and mobile screenshots. `docs/SIGNLINE_EMERGENCY.md` |
 | Accounts and roles | **Demo only** | no server accounts or passwords; role kept in the browser; anyone can open Admin (Section 16) |
 | Game Mode | Working (local) | 70 lessons over the 314 words, real recorded examples, quizzes, XP / streak / badges in localStorage; no leaderboard (needs accounts) |
-| Recognition model v6 | Deployed | clip accuracy 97.4-99.4% on held-out test (Section 13), **same signers and sessions as training** |
+| Recognition model **v9** | Deployed 2026-10-18 | v8 recipe + the app's 30 recorded takes; test streams -0.2 to +2.2 points vs v8 everywhere; the owner's own takes 0-17% → 67-83% (6 clips, same session). `docs/SCALING_VOCABULARY.md` |
+| Barriers between words (custom words) | Per-word boundary on; quality report on *Teach a sign* | 150-word benchmark: mix-ups 7.0% → 5.0%, stolen known words 1.2% → 0.7% (test); "I don't know this sign" for known words built but off (costs too many known words) |
+| Recognition model v6 (history) | Replaced | clip accuracy 97.4-99.4% on held-out test (Section 13), **same signers and sessions as training** |
 | Continuous-stream recognition (simulated live use) | Working in benchmark | 90-98% correct, 0-2.2% wrong on held-out streams |
 | Close-up laptop-webcam framing | Handled in benchmark | 90.0-90.6% correct (simulated close-up) |
 | New recording sessions / new people | Weak | 66.7% clip accuracy on unseen INCLUDE sessions |
@@ -241,6 +244,7 @@ build a sentence and speak it.
 └── docs/
     ├── AUDIT_2026-10-13.md     audit: what is real, what was faked or overstated, evidence, fixes
     ├── SIGNLINE_EMERGENCY.md   Emergency Communication Assistant: behaviour, honesty rules, architecture, API, config, limits
+    ├── SCALING_VOCABULARY.md   barriers between words, large-vocabulary benchmark, v9, how to reach 400-500 words
     ├── blueprints/             versioned development plans (README index; v1.0 = definition of MUDRA v1.0, milestones M0-M6)
     ├── MUDRA_MASTER_PLAN.md    original analysis, dataset research, dated progress log (very detailed)
     ├── architecture.md         short architecture table
@@ -586,6 +590,13 @@ on **validation** streams only.
 
 ## 10. Recording tool and few-shot custom words
 
+**Barriers (2026-10-18, `docs/SCALING_VOCABULARY.md`).** `FewShotConfig` gained `radius_k` (per-word boundary
+from the spread of its takes; **live: 2.0**) and `outlier_z` (leave out takes that disagree; off), next to
+`margin` (0.0). `CustomWordBank.report()` and `RecordingStore.quality()` give per word: takes used / left out,
+consistency, boundary, nearest other word, `too_close`, and `looks_like` (the known word the model reads the
+takes as, at 0.7); `GET/POST /recordings` return it as `quality` and *Teach a sign* shows the warnings.
+Known-word boundaries (`KnownWordBoundaries`, `known_boundary_k` in `streaming.json`) exist but are off.
+
 **Record page** → `POST /recordings`: name, word (8 suggested app words or any typed word), 3 s
 countdown with hands down, 2-5 s capture, landmarks only. `RecordingStore` (`recordings.py`):
 
@@ -804,7 +815,10 @@ Other measurements:
 | **letters v1** | 2026-10-16 | `train_letters.py`: alphabet photos, colour-group split, MLP, 200 epochs | 70.9% top-1 test photos (Section 13) |
 | **phrases v1** | 2026-10-16 | `phrases_only.yaml` + seq_len 48, no background | 58.3% top-1 / 81.3% top-5 test videos |
 
-v8 is deployed; v6 is kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
+| **v9** | 2026-10-18 | `mudra_words_v9.yaml`: v8 recipe on `combined_words_v4_app` (+ 30 app takes of 6 words) | test streams 7 fps vs v8: -0.2 to +2.2 points on every source and framing; owner's takes 0-17% → 67-83% (6 clips); clip test 98.33% |
+| v9 cosine (push-apart) | – | `mudra_words_v9_cos.yaml`, CosFace head | worse than v9 on validation streams (e.g. desk 63.9% vs 66.7%); not deployed |
+
+v9 is deployed (2026-10-18); v8 is kept for rollback (`MUDRA_MODEL_DIR`). Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
 
 ---
 
@@ -826,6 +840,9 @@ v8 is deployed; v6 is kept beside it for rollback until v8 is confirmed live (`5
 | Phrases inside the word model | not tried: at ~58% they would add wrong phrase guesses while people sign words | – |
 | Letters: 80 vs 200 epochs | validation 59.3% vs **62.2%** (chosen) | letter colour groups |
 | Letter photos: as given / 3x / 3x + border / 2x + sharpen / 4x + big border | any hand found in 44% / 38% / **52%** (used) / 40% / 52% of a 260-photo sample | detection only |
+| Push-apart (cosine-margin) head for the word model | same clip accuracy on 164 words; fewer made-up answers with barriers, but worse validation streams for v9 | 150-word benchmark, v9 val streams |
+| "I don't know this sign" boundary around known words (`known_boundary_k`) | made-up answers ~48% → 10-19%, but known words answered 97% → 79.5% (86.3% push-apart); no strictness kept the drop within 3 points on validation | 150-word benchmark |
+| Leave out disagreeing takes (`outlier_z`) / margin between taught words | not chosen on validation (margin 0.0, outlier_z off) | 150-word benchmark |
 | Face recognition to recover INCLUDE signer IDs | not done: personal-data rule | – |
 
 ---
@@ -837,12 +854,15 @@ v8 is deployed; v6 is kept beside it for rollback until v8 is confirmed live (`5
 1. **Live webcam test** (needs the owner, ~15 min): sign ~20 known words plus a few letters and phrases on
    Communication, writing down what was signed, with `MUDRA_SESSION_DIR` set (signer consent); replay with
    `training/scripts/replay_session.py` to see whether frame rate, framing or the model fails (items 1, 1b, 12).
-2. **More signers**: 4-5 teammates record on *Teach a sign*, 5+ takes per word, starting with the emergency words
+2. **More signers**: 4-5 teammates record on *Teach a sign*, 10-15 takes per word over several days (the page now
+   warns about inconsistent takes and look-alike words), starting with the emergency words
    the model lacks (HELP, CHEST, PAIN, BREATHING, FIRE, SMOKE, ACCIDENT, UNSAFE, FOLLOWING …); then train v9 and
    switch the Emergency feature to the real recogniser (`docs/SIGNLINE_EMERGENCY.md`, "Connecting the real model").
    Request FDMSE-ISL (email), CISLR (form), iSign (Hugging Face).
 3. **Measure new people**: keep 2-3 people entirely out of training and record them as the test set (item 1c).
 4. **Letters and phrases**: 10-15 videos per phrase from several people; webcam-quality letter clips for I, H, J, M.
+4b. **"Other sign" class** against made-up answers: train the word model with out-of-vocabulary signs as their own
+   class and measure with `eval_fewshot_scale.py` (made-up) and `eval_continuous.py` (known words).
 5. **Product**: real accounts (item 1f), review by Deaf ISL users or an ISL teacher, confirm data licences (item 7),
    fill the legal pages.
 6. **Engineering**: HTTPS hosting (phones allow the camera only over HTTPS), in-browser inference (ONNX), CI for
@@ -883,8 +903,11 @@ Priority order. Each item says what is known and what to do next.
    test split shares signers and sessions with training. Record several people on the Record page
    and keep one or two entirely out of training as the test set.
 1d. **Custom words** (`fewshot.py`): the reported "confidence" is a cosine similarity, and a custom word
-   can override a `no_sign` decision; this path is not measured on idle movement, and `fewshot.json`
-   was tuned on the hold-out model at threshold 0.8, not on v6 at 0.7.
+   can override a `no_sign` decision; this path is not measured on idle movement. `fewshot.json` (`radius_k` 2.0)
+   was chosen on the 150-word hold-out benchmark (a v8-recipe model), not on v9 itself. At 400-500 taught words
+   expect more mix-ups (5% at 150 in the benchmark) and taught words lost to known words (~26-28%): retrain
+   once words have enough takes. The word model still answers most never-taught signs with a known word
+   (48-60% in the benchmark); the planned fix is an "other sign" class (`docs/SCALING_VOCABULARY.md`).
 1e. **Sign descriptions** in `islDictionary.js` are not checked against the ISLRTC dictionary (the
    WATER description looks like the ASL sign); the "verified" flags in that file mean nothing.
 2. **Generalisation to new people is weak:** 66.7% on unseen recording sessions; accuracy follows
@@ -957,7 +980,8 @@ Reset: stop the server, delete `app/backend/var/`. Variables: `app/backend/.env.
 
 ## 18. Tests
 
-`pytest training app/backend/tests` → 104 passed (69 + 6 in `test_library.py` + 29 in `app/backend/tests/emergency`).
+`pytest training app/backend/tests` → 109 passed (74 incl. 5 in `training/tests/test_barriers.py` + 6 in `test_library.py`
++ 29 in `app/backend/tests/emergency`); `test_api.py` also checks the recordings `quality` report.
 `npm test` → 15 (adds 3 for the letter and phrase paths: all 26 letters once, unique phrases, per-track unlocking, same-track quiz options).
 `npm test` (Vitest) in `app/frontend` → 12 passed (5 for camera practice: hand slots, similarity, rest detection;
 7 for Game Mode): curriculum covers the 314 words once, lesson unlocking, XP and
@@ -1031,7 +1055,19 @@ that need the model or landmark data skip automatically when those files are mis
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
 
-### 2026-10-16 · docs: README, AGENTS.md, CLAUDE.md, HANDOVER brought up to date
+### 2026-10-18 · v9 deployed; barriers between words
+- Owner's request: recorded words must not mix up or make up answers at 400-500 words; then "do all the things".
+- New: per-word boundary / margin / outlier options and quality report (`fewshot.py`, `recordings.py`, *Teach a sign*
+  warnings), "next word" cue on Communication, cosine-margin head option (`sequence_model.py`), known-word boundaries
+  (`KnownWordBoundaries`, `known_boundary_k`, `build_known_boundaries.py`; off), large-vocabulary benchmark
+  (`make_fewshot_split.py`, `eval_fewshot_scale.py`, `fewshot_tradeoff.py`), app recordings in training
+  (`build_app_split.py`, `combined_words_v4_app`, `mudra_words_v9.yaml`, `mudra_words_v9_cos.yaml`).
+- Measured (test): 150 taught words, 10 takes: mix-ups 7.0% → 5.0%, stolen 1.2% → 0.7% with `radius_k` 2.0 (now live).
+  v9 vs v8 test streams: -0.2 to +2.2 points everywhere, owner's takes 0-17% → 67-83% (6 clips). v9 deployed.
+  Known-word boundary and the cosine v9 measured and not adopted (Section 15).
+- Docs: `docs/SCALING_VOCABULARY.md`; HANDOVER sections 0, 2, 3, 10, 14, 15, 16, 18.
+
+### 2026-10-16 · `df5a89c` · docs: README, AGENTS.md, CLAUDE.md, HANDOVER brought up to date
 - Owner's request after `08dd74f`. HANDOVER: product summary (Section 1), feature-document pointers (Section 0),
   recommended next steps at the top of Section 16, new rules in Section 19. README: status, quick start, layout,
   tests, data, roadmap. AGENTS.md / CLAUDE.md: SignLine naming, emergency and data rules, test commands. No code change.

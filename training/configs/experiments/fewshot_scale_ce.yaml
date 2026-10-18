@@ -1,0 +1,7 @@
+# Large-vocabulary custom-word benchmark, baseline: the deployed v8 recipe trained on 164 words
+# (150 of the 314 held out; make_fewshot_split.py). Compared with fewshot_scale_cos.yaml.
+#     python training/scripts/train.py --config fewshot_scale_ce.yaml --name fewshot_scale_ce
+base: mudra_words_desk.yaml
+
+data:
+  split_dir: data/metadata/splits/fewshot_scale150

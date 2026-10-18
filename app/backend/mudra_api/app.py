@@ -240,6 +240,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         saved["label_readable"] = readable(saved["label"])
         saved["custom_active"] = saved["label"] in store.bank.labels
         saved["in_model"] = saved["label"] in store.known
+        saved["quality"] = store.quality().get(saved["label"])
         return saved
 
     @app.delete("/recordings/{sample_id}")

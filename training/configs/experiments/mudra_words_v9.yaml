@@ -1,0 +1,6 @@
+# v9 candidate: the v8 recipe (mudra_words_desk.yaml) + the app's recorded takes (build_app_split.py).
+#     python training/scripts/train.py --config mudra_words_v9.yaml --name combined_v9
+base: mudra_words_desk.yaml
+
+data:
+  split_dir: data/metadata/splits/combined_words_v4_app

@@ -261,6 +261,8 @@ def test_recordings_store_and_custom_words(tmp_path):
     summary = c.get("/recordings").json()
     assert summary["total"] == 3 and summary["custom_words"][0] == {"sign": "MY_NEW_WORD", "label": "My new word", "examples": 3}
     assert c.get("/health").json()["custom_words"] == 1
+    q = summary["signs"][0]["quality"]  # barrier report: how well the takes agree and the word's boundary
+    assert q["takes"] == 3 and q["used"] == 3 and 0.0 < q["consistency"] <= 1.0 and q["boundary"] >= 0.0
     manifest = (tmp_path / "metadata" / "manifest_app.csv").read_text(encoding="utf-8")
     assert manifest.count("app:session:test_user:") == 3 and manifest.count("app:test_user") == 3
     # a recording of a word the model knows is stored for retraining but is not a custom word
@@ -272,6 +274,8 @@ def test_recordings_store_and_custom_words(tmp_path):
         known = c.post("/recordings", json={"label": rows[0]["label"], "width": req["width"], "height": req["height"],
                                             "frames": [{"t": k / 30, **fr} for k, fr in enumerate(req["frames"])]}).json()
     assert known["in_model"] and known["custom_active"] and known["label_count"] == 3
+    assert known["quality"]["consistency"] > 0.99  # the same clip three times
+    assert known["quality"]["looks_like"] is None  # the model reads it as the word itself
     for sid in ids:
         assert c.delete(f"/recordings/{sid}").status_code == 200
     assert c.get("/health").json()["custom_words"] == 1  # the known word's personal examples remain

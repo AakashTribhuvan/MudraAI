@@ -74,6 +74,8 @@ def signer_key(name: str) -> str:
 
 # A word the model already knows gets the signer's own examples once it has this many good recordings
 PERSONAL_MIN_EXAMPLES = 3
+# A take "looks like" another known word when the trained model picks that word at this confidence or more
+LOOKS_LIKE_CONFIDENCE = 0.7
 
 
 class RecordingStore:
@@ -89,14 +91,41 @@ class RecordingStore:
         self._lock = threading.Lock()
         self.rows: list[ManifestRow] = read_manifest(self.manifest_path) if self.manifest_path.exists() else []
         self._embeddings: dict[str, np.ndarray] = {}
+        self._probs: dict[str, np.ndarray] = {}
         self.rebuild_bank()
 
     # -- custom words -------------------------------------------------------------------------
     def _embedding(self, row: ManifestRow) -> np.ndarray:
         if row.sample_id not in self._embeddings:
             seq = load_sequence(Path(row.landmarks_path))
-            self._embeddings[row.sample_id] = self.bundle.embed([seq], int(seq.meta["width"]), int(seq.meta["height"]))[0]
+            p, e = self.bundle.probs_and_embeddings([seq], int(seq.meta["width"]), int(seq.meta["height"]))
+            self._embeddings[row.sample_id], self._probs[row.sample_id] = e[0], p[0]
         return self._embeddings[row.sample_id]
+
+    def quality(self) -> dict[str, dict]:
+        """Per recorded word: the bank's barrier report (consistency, takes left out, nearest other custom
+        word, too_close) plus which known word the trained model reads its takes as (``looks_like``)."""
+        if self.bundle is None:
+            return {}
+        report = self.bank.report()
+        out: dict[str, dict] = {}
+        by_label: dict[str, list[ManifestRow]] = {}
+        for r in self.rows:
+            if not r.quality_flag and Path(r.landmarks_path).exists():
+                by_label.setdefault(r.label, []).append(r)
+        for label, rows in by_label.items():
+            entry = dict(report.get(label, {"takes": len(rows), "used": 0, "left_out": [], "too_close": False}))
+            entry["left_out"] = [rows[i].sample_id for i in entry.get("left_out", []) if i < len(rows)]
+            reads = {}
+            for r in rows:
+                self._embedding(r)
+                d = self.bundle.decide(self._probs[r.sample_id], threshold=LOOKS_LIKE_CONFIDENCE)
+                if d["status"] == "ok" and d["sign"] != label:
+                    reads[d["sign"]] = reads.get(d["sign"], 0) + 1
+            other = max(reads, key=reads.get) if reads else None
+            entry["looks_like"] = {"sign": other, "takes": reads[other]} if other and reads[other] * 2 >= len(rows) else None
+            out[label] = entry
+        return out
 
     def rebuild_bank(self) -> None:
         """Custom-word bank: new words from their first good recording; words the model already knows
@@ -155,6 +184,7 @@ class RecordingStore:
             self.rows = [r for r in self.rows if r.sample_id != sample_id]
             Path(row.landmarks_path).unlink(missing_ok=True)
             self._embeddings.pop(sample_id, None)
+            self._probs.pop(sample_id, None)
             write_manifest(self.rows, self.manifest_path)
             self.rebuild_bank()
             return True
@@ -163,6 +193,7 @@ class RecordingStore:
         return sum(1 for r in self.rows if r.label == label and not r.quality_flag)
 
     def summary(self) -> list[dict]:
+        quality = self.quality()
         by_label: dict[str, list[ManifestRow]] = {}
         for r in self.rows:
             by_label.setdefault(r.label, []).append(r)
@@ -174,6 +205,7 @@ class RecordingStore:
                 "signers": sorted({r.signer_id.split(":", 1)[-1] for r in good}),
                 "in_model": label in self.known, "custom_active": label in self.bank.labels,
                 "items": [self._public(r) for r in rows],
+                "quality": quality.get(label),
             })
         return out
 
