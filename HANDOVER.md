@@ -1081,6 +1081,20 @@ that need the model or landmark data skip automatically when those files are mis
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
 
+### 2026-10-20 · Communication (Sign -> Voice) mobile layout (not committed yet)
+- Owner: on phones the camera filled the screen and the detected sign was 2-3 scrolls below it. Causes: a phone rule
+  `height: clamp(480px, 72dvh, 680px)` on the camera, and the stacked columns putting the manual-word chips and the
+  word list between the camera and the results. Fix (CSS in `CommunicatePage.jsx`, all below 1024 px, desktop
+  untouched): results card right after the camera, chips and word list after it; camera `clamp(220px, 42dvh,
+  380px)` on phones (short / landscape screens: `100dvh - 9rem`); model picker at the end of the card on phones;
+  camera buttons on one row from 360 px, tips above them, "Added" cue below the status pills; camera scrolls into
+  view when it starts; 10rem bottom room for the nav + SOS. SOS: 48 px and 8 px from the edge below 640 px.
+- Measured (fake camera, emulated phones): camera top -> Meaning 1,311 -> 659 px at 360x640, 1,394 -> 729 at 390x844,
+  1,445 -> 735 at 412x915 (camera, detected sign, recognized and meaning on one screen there); no horizontal scroll,
+  no overlapping or clipped camera controls at 320-844 px. Desktop 1024 / 1366 / 1920 screenshots: identical except
+  the animated pulse icons (<= 0.02% of pixels).
+- The owner's screenshots came from the teammate's tunnel build (extra panels); this fixes our page.
+
 ### 2026-10-20 · v11a deployed: 17 recorded words, no mix-ups
 - Owner recorded 8 more words (FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME; 93 takes / 17 words).
   v11a (from v10c, takes x6, lr 1e-4) vs v10c on `combined_words_v6_app_r4` val/test: owner's takes 30/34 vs 14/34,

@@ -28,7 +28,7 @@ export default function EmergencySOSButton() {
   const item = 'flex min-h-12 items-center gap-3 rounded-sl border-2 border-sl-ink bg-white px-4 text-left text-sm font-bold hover:bg-sl-cream-200'
 
   return (
-    <div className={`fixed right-4 z-50 flex flex-col items-end gap-3 lg:bottom-6 lg:right-6 ${aboveNav ? 'bottom-[5.5rem]' : 'bottom-5'}`}
+    <div className={`fixed right-2 sm:right-4 z-50 flex flex-col items-end gap-3 lg:bottom-6 lg:right-6 ${aboveNav ? 'bottom-[4.75rem] sm:bottom-[5.5rem]' : 'bottom-5'}`}
          style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
       {open && (
         <div ref={panelRef} id="sos-panel" role="dialog" aria-modal="false" aria-labelledby="sos-title"
@@ -70,7 +70,7 @@ export default function EmergencySOSButton() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls="sos-panel"
-        className="relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-sl-ink bg-rose-600 font-display text-lg font-extrabold tracking-wide text-white shadow-sl transition-transform hover:bg-rose-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-rose-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+        className="relative flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border-2 border-sl-ink bg-rose-600 font-display text-sm sm:text-lg font-extrabold tracking-wide text-white shadow-sl transition-transform hover:bg-rose-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-rose-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
       >
         {!open && <span className="sl-motion absolute inset-0 -z-10 animate-ping rounded-full bg-rose-500/40" aria-hidden="true" />}
         {open ? <X className="h-7 w-7" aria-hidden="true" /> : <span aria-hidden="true">SOS</span>}

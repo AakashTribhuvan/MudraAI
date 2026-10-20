@@ -59,6 +59,7 @@ export default function CommunicatePage() {
   // --- Mode A (Sign to Speech) State ---
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+  const cameraPanelRef = useRef(null)
 
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraLoading, setCameraLoading] = useState(false)
@@ -503,6 +504,9 @@ export default function CommunicatePage() {
           deviceId: cameraId, resolution: cameraRes, onIssue: setCameraIssue
         })
         setCameraActive(true)
+        if (window.matchMedia?.('(max-width: 1023px)').matches) {
+          cameraPanelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) // camera + results on one screen
+        }
         handTracker.listCameras().then(setCameras).catch(() => {}) // labels appear once permission is granted
         try {
           await faceExpressionTracker.start(videoRef.current, handleFaceResults, handleFaceError)
@@ -651,20 +655,65 @@ export default function CommunicatePage() {
   }, [])
 
   return (
-    <div className="pt-6 lg:pt-10 pb-24 lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="communicate-page pt-6 lg:pt-10 pb-24 lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
       <style>{`
+        /* Below the desktop layout (lg) the two columns stack: the results card goes right under the camera,
+           the manual-word chips and the word list after it (the left column's children join the grid). */
+        @media (max-width: 1023px) {
+          .communicate-page { padding-bottom: 10rem; }
+          .communicate-sign-grid { gap: 1rem; }
+          .communicate-left { display: contents; }
+          .communicate-left > * { margin-top: 0 !important; }
+          .communicate-camera-panel { order: 1; scroll-margin-top: 4.5rem; }
+          .communicate-right { order: 2; }
+          .communicate-chips { order: 3; }
+          .communicate-vocab { order: 4; }
+        }
+        /* Phones: the camera follows the screen height, so the detected sign fits on the same screen */
         @media (max-width: 767px) {
+          .communicate-page { padding-top: 1rem; }
+          .communicate-page > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+          .communicate-header { padding-bottom: 0.75rem; gap: 0.75rem; }
           .communicate-camera-panel {
             width: 100%;
             max-width: 100%;
             aspect-ratio: auto;
-            height: clamp(480px, 72dvh, 680px);
+            height: clamp(220px, 42dvh, 380px);
             min-height: 0;
           }
           .communicate-camera-panel video,
           .communicate-camera-panel canvas {
             object-fit: cover;
           }
+          .communicate-camera-panel .communicate-hint {
+            bottom: 3.75rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            line-height: 1rem;
+          }
+          /* results first; the model picker (a setting) moves to the end of the card */
+          .communicate-results { padding: 1rem; display: flex; flex-direction: column; }
+          .communicate-results > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+          .communicate-words { display: contents; }
+          .communicate-model-picker { order: 1; margin: 1rem 0 0 !important; }
+          .communicate-camera-panel .communicate-cue { top: 3.25rem; }
+        }
+        /* Phones from 360 px: the camera buttons stay on one row, so the tips above them have room */
+        @media (min-width: 360px) and (max-width: 767px) {
+          .communicate-controls { flex-wrap: nowrap; gap: 0.375rem; }
+          .communicate-controls > div { gap: 0.375rem; }
+          .communicate-controls button { padding: 0.375rem 0.625rem; white-space: nowrap; }
+        }
+        @media (min-width: 360px) and (max-width: 389px) {
+          .communicate-controls, .communicate-controls > div { gap: 0.25rem; }
+          .communicate-controls button { padding: 0.375rem 0.4375rem; }
+        }
+        @media (max-width: 767px) {
+          .communicate-camera-panel .communicate-cue { white-space: nowrap; font-size: 0.75rem; padding: 0.25rem 0.75rem; }
+        }
+        /* Short screens (phones in landscape): the camera keeps room for the controls around it */
+        @media (max-width: 1023px) and (max-height: 560px) {
+          .communicate-camera-panel { aspect-ratio: auto; height: max(200px, calc(100dvh - 9rem)); min-height: 0; }
         }
         @media (min-width: 768px) and (max-width: 1279px) {
           .communicate-camera-panel {
@@ -674,7 +723,7 @@ export default function CommunicatePage() {
       `}</style>
       
       {/* Header & 2-Way Mode Switcher */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-mudra-lavender-200/60">
+      <div className="communicate-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-mudra-lavender-200/60">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mudra-lavender-100 text-mudra-lavender-700 text-xs font-bold font-mono mb-1">
             <Radio className="w-3.5 h-3.5 text-mudra-lavender-600 animate-pulse" />
@@ -725,11 +774,11 @@ export default function CommunicatePage() {
 
       {/* MODE 1: SIGN TO SPEECH (Signer to Listener) */}
       {activeMode === 'sign-to-speech' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn">
+        <div className="communicate-sign-grid grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn">
           
           {/* Left: Live Webcam + Canvas Landmark Overlay */}
-          <div className="lg:col-span-7 space-y-5">
-            <div className="communicate-camera-panel relative aspect-video sm:aspect-[4/3] min-h-[320px] sm:min-h-0 bg-mudra-indigo-900 rounded-3xl overflow-hidden shadow-xl border-2 border-mudra-indigo-700/90 flex flex-col justify-between p-4 sm:p-5 text-white">
+          <div className="communicate-left lg:col-span-7 space-y-5">
+            <div ref={cameraPanelRef} className="communicate-camera-panel relative aspect-video sm:aspect-[4/3] min-h-[320px] sm:min-h-0 bg-mudra-indigo-900 rounded-3xl overflow-hidden shadow-xl border-2 border-mudra-indigo-700/90 flex flex-col justify-between p-4 sm:p-5 text-white">
               
               <video
                 ref={videoRef}
@@ -749,7 +798,7 @@ export default function CommunicatePage() {
 
               {cameraActive && nextCue && inputMode === 'words' && (
                 <div key={nextCue.at} role="status"
-                     className="sl-motion absolute left-1/2 top-4 z-30 -translate-x-1/2 animate-sl-fade-up rounded-full border-2 border-sl-ink bg-sl-green px-4 py-1.5 text-sm font-extrabold text-sl-ink shadow-sl-sm">
+                     className="communicate-cue sl-motion absolute left-1/2 top-4 z-30 -translate-x-1/2 animate-sl-fade-up rounded-full border-2 border-sl-ink bg-sl-green px-4 py-1.5 text-sm font-extrabold text-sl-ink shadow-sl-sm">
                   ✓ Added “{nextCue.label}”: next word
                 </div>
               )}
@@ -815,7 +864,7 @@ export default function CommunicatePage() {
               )}
 
               {cameraActive && !cameraIssue && !framing && trackerFps > 0 && trackerFps < LOW_FPS && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
+                <div className="communicate-hint absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
                   {slowReason === 'camera'
                     ? `Your camera sends only ${trackerDiag.cameraFps} frames per second. Webcams slow down in dim light: add light in front of you.`
                     : trackerDiag?.delegate === 'CPU'
@@ -825,7 +874,7 @@ export default function CommunicatePage() {
               )}
 
               {cameraActive && framing && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
+                <div className="communicate-hint absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
                   {framing === 'no_shoulders'
                     ? 'Move back so both shoulders are in view: recognition needs your upper body.'
                     : 'Move back a little: your chest and both hands should stay in view while you sign.'}
@@ -854,7 +903,7 @@ export default function CommunicatePage() {
 
               {/* Bottom Controls */}
               {cameraActive && (
-                <div className="flex flex-wrap items-center justify-between gap-3 z-20 pt-2 border-t border-white/10">
+                <div className="communicate-controls flex flex-wrap items-center justify-between gap-3 z-20 pt-2 border-t border-white/10">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -888,7 +937,7 @@ export default function CommunicatePage() {
             </div>
 
             {/* Quick Sign Simulator Chips */}
-            <div className="glass-card rounded-3xl p-4 border border-white space-y-2">
+            <div className="communicate-chips glass-card rounded-3xl p-4 border border-white space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-mudra-indigo-900 font-display">
                   {modelState.status === 'online' ? 'Add a word manually:' : 'Rule-based signs (hold in camera or click to add):'}
@@ -914,7 +963,7 @@ export default function CommunicatePage() {
             </div>
 
             {modelState.status === 'online' && vocab.length > 0 && (
-              <div className="glass-card rounded-2xl p-4 border border-mudra-lavender-200/80 space-y-3">
+              <div className="communicate-vocab glass-card rounded-2xl p-4 border border-mudra-lavender-200/80 space-y-3">
                 <button
                   type="button"
                   onClick={() => setVocabOpen((o) => !o)}
@@ -971,8 +1020,8 @@ export default function CommunicatePage() {
           </div>
 
           {/* Right: Interpretation Panel & Speech Out */}
-          <div className="lg:col-span-5 space-y-5 lg:pt-0">
-            <div className="glass-card rounded-3xl p-5 sm:p-6 border border-mudra-lavender-200/80 shadow-lg space-y-7">
+          <div className="communicate-right lg:col-span-5 space-y-5 lg:pt-0">
+            <div className="communicate-results glass-card rounded-3xl p-5 sm:p-6 border border-mudra-lavender-200/80 shadow-lg space-y-7">
               <InputModeSwitch mode={inputMode} onChange={changeInputMode} />
 
               {inputMode === 'spell' ? (
@@ -982,9 +1031,9 @@ export default function CommunicatePage() {
                 <PhrasePanel cameraActive={cameraActive} accuracy={libraryModels.phrases}
                              onCommitPhrase={(phrase) => setRecognizedTokens((prev) => [...prev, phrase])} />
               ) : (
-              <div>
+              <div className="communicate-words">
                 {wordModels.length > 1 && (
-                  <label className="mb-3 block text-xs font-semibold text-mudra-indigo-700">
+                  <label className="communicate-model-picker mb-3 block text-xs font-semibold text-mudra-indigo-700">
                     Recognition model
                     <select value={wordModel} onChange={(e) => setWordModel(e.target.value)}
                             className="mt-1 block w-full rounded-xl border border-mudra-lavender-300 bg-white px-2 py-1.5 text-sm">
