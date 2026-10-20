@@ -1,0 +1,15 @@
+# v10 candidate: v9 + all recorded takes (Teach a sign; 47 takes / 9 words on 2026-10-19, new: FROM, PUNE),
+# each training take listed 10 times (build_app_split.py --train-repeat 10). Starts from v9's weights.
+#     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v5_app --train-repeat 10
+#     python training/scripts/train.py --config mudra_words_v10.yaml --name combined_v10
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v9_20261018-132122
+
+data:
+  split_dir: data/metadata/splits/combined_words_v5_app
+
+train:
+  epochs: 60
+  warmup_epochs: 2
+  patience: 20
+  lr: 0.0005

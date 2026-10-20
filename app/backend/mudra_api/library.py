@@ -23,7 +23,22 @@ log = logging.getLogger("mudra_api")
 
 LETTER_PREFIX = "LETTER_"
 LETTER_HOLD_FRAMES = 15  # a still hand shape is served as a 1 s clip at 15 fps
-TWO_HANDED_SHARE = 0.5   # a letter is shown two-handed when most of its photos with hands show two hands
+TWO_HANDED_SHARE = 0.2   # a letter is two-handed when at least this share of its photos show two hands (one-
+                         # handed C L O U V: <= 11%; the rest: >= 28%, single-hand photos there miss a hand)
+CHIRALITY_MARGIN = 0.15  # |chirality| above this: left/right is clear (96% right on our word videos, 59% of frames)
+
+
+def chirality(hand: np.ndarray) -> float:
+    """Which hand a set of 21 landmarks is, from its 3D shape alone: the thumb sits on the palm side of the
+    wrist-index-pinky plane, and that side is mirrored between left and right hands. Negative = signer-left,
+    positive = signer-right (calibrated on the word videos, whose hands were assigned using the body pose).
+    Independent of where the hand is in the picture, so it works on close-up photos too."""
+    h = np.asarray(hand, dtype=np.float64)
+    n = np.cross(h[5] - h[0], h[17] - h[0])
+    n /= np.linalg.norm(n) + 1e-9
+    v = h[[2, 3, 4]] - h[0]
+    v /= np.linalg.norm(v, axis=1, keepdims=True) + 1e-9
+    return float((v @ n).mean())
 
 
 def letter_id(letter: str) -> str:
@@ -47,6 +62,20 @@ class LetterReferences:
                 continue
             want = 2 if (counts[with_hands] == 2).mean() >= TWO_HANDED_SHARE else 1
             candidates = np.where(counts == want)[0]
+            # prefer photos whose hands are clearly a left / right hand (one of each when two-handed), so the
+            # avatar can use the matching arm
+            chir = {int(i): [chirality(z["hands"][i, h]) for h in range(2) if z["present"][i, h]] for i in candidates}
+            clear = [i for i in candidates if all(abs(c) > CHIRALITY_MARGIN for c in chir[int(i)])
+                     and (want == 1 or chir[int(i)][0] * chir[int(i)][1] < 0)]
+            if clear and want == 2:  # and the usual layout (which hand is on which side) for this letter
+                def left_on_right(i: int) -> bool:
+                    a, b = (z["hands"][i, h] for h in range(2))
+                    left, right = (a, b) if chirality(a) < 0 else (b, a)
+                    return bool(left[0, 0] > right[0, 0])
+                usual = np.mean([left_on_right(int(i)) for i in clear]) >= 0.5
+                clear = [i for i in clear if left_on_right(int(i)) == usual] or clear
+            if clear:
+                candidates = np.array(clear)
             if model is not None:
                 feats = np.stack([letter_features([z["hands"][i, h] for h in range(2) if z["present"][i, h]])
                                   for i in candidates])
@@ -55,8 +84,16 @@ class LetterReferences:
             else:
                 best = int(candidates[np.argmax(z["score"][candidates].sum(axis=1))])
             hands = [z["hands"][best, h] for h in range(2) if z["present"][best, h]]
-            hands.sort(key=lambda h: -float(h[0, 0]))  # player slots are signer-left / right of a mirrored view
-            slots = [np.round(h, 4).tolist() for h in hands] + [None] * (2 - len(hands))
+            slots: list = [None, None]  # signer-left, signer-right, by each hand's shape
+            for h in sorted(hands, key=chirality):
+                slot = 0 if chirality(h) < 0 else 1
+                if slots[slot] is not None:
+                    slot = 1 - slot
+                slots[slot] = np.round(h, 4).tolist()
+            if want == 1 and slots[0] is not None:  # one-handed letters on the right hand: mirror a left one
+                h = np.array(slots[0])
+                h[:, 0] = 1.0 - h[:, 0]
+                slots = [None, np.round(h, 4).tolist()]
             self._frames[letter_id(letter)] = {"hands": slots, "pose": None}
         self.available = set(self._frames)
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { InputModeSwitch, PhrasePanel, SpellPanel } from '../components/communicate/LibraryModes'
-import { fetchLibrary, letterSpeller, phraseRecorder } from '../services/libraryClient'
+import { fetchLibrary, fetchModels, letterSpeller, phraseRecorder } from '../services/libraryClient'
 import { 
   Camera, 
   CameraOff, 
@@ -128,6 +128,16 @@ export default function CommunicatePage() {
   const [inputMode, setInputMode] = useState('words')
   const inputModeRef = useRef('words')
   const [libraryModels, setLibraryModels] = useState({})
+  // Word model for Words mode (GET /models): the deployed model by default, experimental ones opt-in
+  const [wordModels, setWordModels] = useState([])
+  const [wordModel, setWordModel] = useState(() => readPref('signline_word_model', 'sequence'))
+  useEffect(() => { fetchModels().then(setWordModels) }, [])
+  useEffect(() => {
+    const known = !wordModels.length || wordModels.some((m) => m.id === wordModel)
+    const id = known ? wordModel : 'sequence'
+    try { signRecognizer.setModel(id) } catch { signRecognizer.setModel('sequence') }
+    writePref('signline_word_model', id)
+  }, [wordModel, wordModels])
   useEffect(() => { fetchLibrary().then((l) => setLibraryModels(l.models || {})) }, [])
   const changeInputMode = (mode) => {
     inputModeRef.current = mode
@@ -186,6 +196,16 @@ export default function CommunicatePage() {
     setRecognizedTokens((prev) => (prev.length ? [...prev.slice(0, -1), sign] : [sign]))
   }, [])
 
+  // Auto mode: letters within SPELL_JOIN_MS of each other build one spelled word; a recognised word ends it
+  const spellingRef = useRef(0)
+  const SPELL_JOIN_MS = 3000
+  const addLetter = useCallback((letter) => {
+    const now = Date.now()
+    const joining = now - spellingRef.current < SPELL_JOIN_MS
+    spellingRef.current = now
+    setRecognizedTokens((prev) => (joining && prev.length ? [...prev.slice(0, -1), prev[prev.length - 1] + letter] : [...prev, letter]))
+  }, [])
+
   const commitToken = useCallback((sign) => {
     setRecognizedTokens((prev) => (prev.length > 0 && prev[prev.length - 1] === sign ? prev : [...prev, sign]))
   }, [])
@@ -217,11 +237,20 @@ export default function CommunicatePage() {
       })
       // The server classified one complete sign (start -> end), so each sign adds at most one word
       if (added) {
+        spellingRef.current = 0
         commitToken(added.sign)
         setNextCue({ label: added.label || readableSign(added.sign), at: Date.now() })
       }
       // Unsure: the other likely words can replace the one just added (optional, nothing to click otherwise)
       setSuggestions(unsure ? (p.top_k || []).slice(1, 3) : [])
+    }
+    signRecognizer.onLetter = (ev) => {
+      if (isPausedRef.current) return
+      addLetter(ev.letter)
+      setCurrentDetection({
+        sign: ev.sign, label: `Letter ${ev.letter}`, candidate: null, confidence: Math.round(ev.confidence * 100),
+        isUnknown: false, status: 'ok', source: 'letters', metadata: null
+      })
     }
     signRecognizer.onProvisional = (guess) => {
       if (isPausedRef.current) return
@@ -242,6 +271,7 @@ export default function CommunicatePage() {
     signRecognizer.connect()
     return () => {
       signRecognizer.onPrediction = null
+      signRecognizer.onLetter = null
       signRecognizer.onActivity = null
       signRecognizer.onProvisional = null
       signRecognizer.onStatusChange = null
@@ -953,6 +983,44 @@ export default function CommunicatePage() {
                              onCommitPhrase={(phrase) => setRecognizedTokens((prev) => [...prev, phrase])} />
               ) : (
               <div>
+                {wordModels.length > 1 && (
+                  <label className="mb-3 block text-xs font-semibold text-mudra-indigo-700">
+                    Recognition model
+                    <select value={wordModel} onChange={(e) => setWordModel(e.target.value)}
+                            className="mt-1 block w-full rounded-xl border border-mudra-lavender-300 bg-white px-2 py-1.5 text-sm">
+                      {wordModels.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.experimental ? 'Experimental: ' : ''}{m.name} · {m.live_words} words
+                          {m.test_accuracy != null ? ` · ${Math.round(m.test_accuracy * 100)}% (${m.accuracy_split})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {wordModels.find((m) => m.id === wordModel)?.our_test && (() => {
+                      const t = wordModels.find((m) => m.id === wordModel).our_test
+                      const right = t.model_correct ?? t.static_correct
+                      const alarms = t.false_alarm_rate ?? t.static_false_alarm_rate
+                      if (wordModel === 'merged' || wordModel === 'auto') {
+                        const sel = wordModels.find((m) => m.id === wordModel)
+                        return (
+                          <span className="mt-1 block font-normal text-amber-800">
+                            SignLine words answer every word they know (most accurate on our tests). Only when they are
+                            unsure may a teammate model add a word they lack: {sel.words.join(', ').toLowerCase()} (70%
+                            confidence or more; on SignLine's 1,501 test clips this added no wrong answers).
+                            {wordModel === 'auto' ? ' Hold a hand shape still in front of you to spell a letter; letters close together make one word.' : ''}
+                            {' '}Live accuracy is not measured yet.
+                          </span>
+                        )
+                      }
+                      return (
+                        <span className="mt-1 block font-normal text-amber-800">
+                          On SignLine's own test clips: {right} of {t.shared_clips} shared-word signs right (the
+                          default model: {t.word_model_correct} of {t.shared_clips}); answers on {Math.round(alarms * 1000) / 10}% of
+                          other signs.{wordModel === 'intro_static' ? ' Holds a still pose for about half a second.' : ''}
+                        </span>
+                      )
+                    })()}
+                  </label>
+                )}
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-[0.12em] text-mudra-lavender-800 font-display">
                     Detected Sign
@@ -1278,7 +1346,7 @@ export default function CommunicatePage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1 text-[11px] text-mudra-indigo-500">
                     <Sparkles className="w-3 h-3 text-mudra-lavender-600" />
-                    <span>Avatar: 13 words and A-Z fingerspelling</span>
+                    <span>Avatar: 314 recorded word signs, 5 built-in signs, A-Z from real letter photos</span>
                   </div>
 
                   <button

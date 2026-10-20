@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-19",
+  "split": "data/metadata/splits/combined_words_v4_app/test.csv",
+  "word_model": "isl_mudra_combined_v9_bilstm",
+  "model": "signline_intro_video",
+  "vocabulary": 26,
+  "shared_words": [
+    "DRINK",
+    "FRIEND",
+    "GOOD",
+    "GOOD_AFTERNOON",
+    "GOOD_MORNING",
+    "HELLO",
+    "I",
+    "NICE",
+    "SCHOOL",
+    "STUDENT",
+    "THANK_YOU",
+    "TODAY",
+    "WE",
+    "YOU"
+  ],
+  "label_mapping": {
+    "THANKYOU": "THANK_YOU",
+    "THANK": "THANK_YOU",
+    "I_ME_MINE_MY": "I"
+  },
+  "shared_clips": 92,
+  "model_correct": 0,
+  "model_wrong": 6,
+  "word_model_correct": 89,
+  "false_alarms": 99,
+  "other_clips": 1409,
+  "false_alarm_rate": 0.0703,
+  "per_word": {
+    "DRINK": {
+      "clips": 3,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 3
+    },
+    "FRIEND": {
+      "clips": 5,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 3
+    },
+    "GOOD": {
+      "clips": 8,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 8
+    },
+    "GOOD_AFTERNOON": {
+      "clips": 15,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 15
+    },
+    "GOOD_MORNING": {
+      "clips": 11,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 11
+    },
+    "HELLO": {
+      "clips": 11,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 11
+    },
+    "I": {
+      "clips": 5,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 5
+    },
+    "NICE": {
+      "clips": 2,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 2
+    },
+    "SCHOOL": {
+      "clips": 4,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 3
+    },
+    "STUDENT": {
+      "clips": 6,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 6
+    },
+    "THANK_YOU": {
+      "clips": 11,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 11
+    },
+    "TODAY": {
+      "clips": 3,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 3
+    },
+    "WE": {
+      "clips": 4,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 4
+    },
+    "YOU": {
+      "clips": 4,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 4
+    }
+  },
+  "not_in_our_vocabulary": [
+    "EAT",
+    "FOOD",
+    "GO",
+    "HELP",
+    "MYSELF",
+    "NO",
+    "PLEASE",
+    "THIS",
+    "WATER",
+    "WHAT",
+    "WHERE",
+    "YES"
+  ],
+  "note": "Our test clips come from the same signers as our word model's training data; the teammate's models were trained on other people's videos, so this comparison favours our word model."
+}

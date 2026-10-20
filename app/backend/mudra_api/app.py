@@ -21,6 +21,10 @@ from mudra_api.recordings import RecordingStore, frames_to_sequence, parse_frame
 from mudra_api.references import ReferenceClips
 from mudra_api.schemas import LetterRequest, PredictRequest, PredictResponse
 from mudra_api.settings import Settings
+from mudra_api.auto_mode import AutoRecognizer
+from mudra_api.extra_models import TEAMMATE_TEST_ACCURACY, ExtraModels, MergedFallback, WordSource, evaluation, ours, own_threshold
+from mudra_api.isl500_video import ISL500VideoStreamingRecognizer
+from mudra_api.static_pose import StaticPoseModel, StaticPoseStreamingRecognizer
 from signline_emergency.api import emergency_router
 
 log = logging.getLogger("mudra_api")
@@ -56,7 +60,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     except FileNotFoundError as exc:
         load_error = f"Model files not found in {settings.model_dir}: {exc.filename}"
         log.warning(load_error)
-    references = ReferenceClips(settings.reference_split)
+    references = ReferenceClips(settings.reference_split, world_dir=settings.reference_world_dir)
+    # Selectable word models (GET /models; the stream start message picks one with "model").
+    # "sequence" (the deployed word model) is the default; experimental models are opt-in.
+    intro_static: StaticPoseModel | None = None
+    try:
+        intro_static = StaticPoseModel(settings.intro_static_model)
+        log.info("Loaded experimental static-pose model (%d profiles, %d live labels)",
+                 len(intro_static.classes), len(intro_static.live_labels))
+    except (FileNotFoundError, ValueError, KeyError, OSError) as exc:
+        log.info("Static-pose model is unavailable: %s", exc)
+    extra = ExtraModels(settings.common_word_video_model_dir, settings.isl500_video_model,
+                        settings.signline_intro_video_model, settings.device)
+    # the merge: every word from the most accurate model that knows it (see extra_models.py); the static-pose
+    # models take part only to show which of their words fall below the accuracy bar
+    static_sources = [WordSource("intro_static", sorted(ours(c) for c in intro_static.live_labels), lambda *a: None,
+                                 TEAMMATE_TEST_ACCURACY["intro_static"])] if intro_static is not None else []
+    if settings.static_top10_model.exists():
+        try:
+            from mudra_api.static_top10 import StaticTop10Model
+            top10 = StaticTop10Model(settings.static_top10_model)
+            static_sources.append(WordSource("static_top10", sorted(ours(c) for c in top10.classes), lambda *a: None,
+                                             TEAMMATE_TEST_ACCURACY["static_top10"]))
+        except (OSError, ValueError, KeyError) as exc:
+            log.info("Static top-10 model is unavailable: %s", exc)
+    merged = MergedFallback(extra.sources(static_sources), set(bundle.classes)) if bundle is not None else None
     library = Library(settings.letters_model_dir, settings.letters_landmarks, settings.phrases_model_dir,
                       settings.phrases_split, settings.device)
     store = RecordingStore(settings.recordings_dir, bundle, FewShotConfig.load(project_path("training/configs/fewshot.json")))
@@ -87,15 +115,62 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "custom_words": len(store.bank),
         }
 
+    @app.get("/models")
+    def models() -> dict:
+        """Word models the stream can use, each with its measured accuracy and where it was measured."""
+        out = []
+        if recognizer is not None:
+            count = len([c for c in recognizer.classes if not c.startswith("_")])
+            m = recognizer.card.get("metrics", {})
+            version = recognizer.name.removeprefix("isl_mudra_combined_").split("_")[0]
+            out.append({"id": "sequence", "name": f"SignLine words ({version})", "model": recognizer.name,
+                        "default": True, "experimental": False,
+                        "trained_words": count, "live_words": count,
+                        "test_accuracy": m.get("test", {}).get("accuracy"), "accuracy_samples": m.get("test_samples"),
+                        "accuracy_split": "held-out clip test (same signers as training)"})
+        if merged is not None and recognizer is not None:
+            per_model = {}
+            for w, mid in merged.routing.items():
+                per_model.setdefault(mid, []).append(w)
+            merged_info = {"trained_words": count + len(merged.extra), "live_words": count + len(merged.extra),
+                           "words": merged.extra, "words_by_model": per_model, "excluded_words": merged.excluded,
+                           "test_accuracy": m.get("test", {}).get("accuracy"),
+                           "accuracy_split": "SignLine test; added words unmeasured on our data",
+                           "our_test": {mid: evaluation(d) for mid, d in (
+                               ("common_word_video", settings.common_word_video_model_dir),
+                               ("isl500_video", settings.isl500_video_model.parent),
+                               ("signline_intro_video", settings.signline_intro_video_model.parent))}}
+            out.append({"id": "merged", "name": f"Merged: SignLine words + {len(merged.extra)} teammate words",
+                        "default": False, "experimental": True, **merged_info})
+            if library.letter_model is not None:
+                out.append({"id": "auto", "name": "Auto: merged words + A-Z letters", "default": False,
+                            "experimental": True, **merged_info, "letters": True})
+        return {"models": out}
+
     @app.get("/labels")
-    def labels() -> dict:
+    def labels(model: str = "sequence") -> dict:
+        if model == "intro_static":
+            if intro_static is None:
+                raise HTTPException(status_code=503, detail="The static-pose model is not installed.")
+            live = sorted(intro_static.live_labels)
+            return {"count": len(live), "labels": [{"sign": s, "label": readable(s), "has_reference": False} for s in live]}
+        if model in ("common_word_video", "isl500_video"):
+            words = extra.common_words() if model == "common_word_video" else extra.isl500_words()
+            if not words:
+                raise HTTPException(status_code=503, detail="That model is not installed.")
+            return {"count": len(words), "labels": [
+                {"sign": s, "label": readable(s), "has_reference": s in references.available} for s in sorted(set(words))]}
+        if model not in ("sequence", "merged", "auto"):
+            raise HTTPException(status_code=400, detail="Unknown recognition model.")
         rec = require_model()
         signs = [c for c in rec.classes if not c.startswith("_")]
         tested = rec.card.get("per_word_test", {})
         return {"count": len(signs), "labels": [
             {"sign": c, "label": readable(c), "has_reference": c in references.available,
              **({"test_correct": tested[c]["correct"], "test_clips": tested[c]["clips"]} if c in tested else {})}
-            for c in signs]}
+            for c in signs] + ([
+            {"sign": c, "label": readable(c), "has_reference": False, "model": merged.routing[c]}
+            for c in merged.extra] if model in ("merged", "auto") and merged is not None else [])}
 
     @app.get("/reference/{sign}")
     def reference(sign: str) -> dict:
@@ -164,7 +239,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await ws.send_json({"event": "error", "detail": load_error})
             await ws.close()
             return
-        session: StreamingRecognizer | None = None
+        session: StreamingRecognizer | StaticPoseStreamingRecognizer | ISL500VideoStreamingRecognizer | AutoRecognizer | None = None
         frames: list = []
         size, diag, diag_logged = (0, 0), {}, -1e9
         try:
@@ -173,7 +248,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if msg.get("type") == "start":
                     save_session(frames, *size, diag)
                     frames, size = [], (int(msg["width"]), int(msg["height"]))
-                    session = StreamingRecognizer(bundle, segmenter_cfg, *size, store.bank)
+                    model_id = msg.get("model", "sequence")
+                    if model_id == "intro_static" and intro_static is not None:
+                        session = StaticPoseStreamingRecognizer(intro_static, *size)
+                    elif model_id == "sequence":
+                        session = StreamingRecognizer(bundle, segmenter_cfg, *size, store.bank)
+                    elif model_id in ("merged", "auto") and merged is not None:
+                        session = StreamingRecognizer(bundle, segmenter_cfg, *size, store.bank, fallback=merged)
+                        if model_id == "auto":
+                            session = AutoRecognizer(session, library.letter_model, *size)
+                    elif model_id == "common_word_video" and extra.common_word is not None:
+                        session = StreamingRecognizer(extra.common_word, own_threshold(segmenter_cfg), *size)
+                    elif model_id == "isl500_video" and extra.isl500 is not None:
+                        session = ISL500VideoStreamingRecognizer(extra.isl500, own_threshold(segmenter_cfg), *size)
+                    else:
+                        await ws.send_json({"event": "error", "detail": f"Recognition model {model_id!r} is not available."})
+                        session = None
                     continue
                 if msg.get("type") == "diag":  # client tracking diagnostics (fps, delegate), kept with a saved session
                     diag = {k: msg[k] for k in DIAG_KEYS if k in msg}
@@ -187,16 +277,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 frame = parse_frame(msg)
                 if session_dir is not None and len(frames) < max_session_frames:
                     frames.append(frame)
-                event = session.push(frame)
-                if event and event["event"] in ("sign_ended", "too_short"):
-                    log_sign(event)
-                if event:
+                pushed = session.push(frame)
+                for event in pushed if isinstance(pushed, list) else [pushed] if pushed else []:
+                    if event["event"] in ("sign_ended", "too_short"):
+                        log_sign(event)
+                    if event["event"] == "letter":
+                        await ws.send_json(event)
+                        continue
                     if "guess" in event:
                         event["guess"]["label"] = readable(event["guess"]["sign"])
                     if "result" in event:
                         for item in event["result"]["top_k"]:
+                            item["sign"] = ours(item["sign"])
                             item["label"] = readable(item["sign"])
-                        sign = event["result"]["sign"]
+                        sign = event["result"]["sign"] = ours(event["result"]["sign"]) if event["result"]["sign"] else None
                         event["result"]["label"] = readable(sign) if sign else None
                     await ws.send_json(event)
         except WebSocketDisconnect:

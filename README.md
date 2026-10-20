@@ -18,7 +18,11 @@ updated at every push and documents the architecture, interfaces, data, models a
 | Area | State |
 |---|---|
 | Web app (Home, Communication, Learning, Game Mode, Progress, Teach a sign, Settings; Admin pages) | Working; avatar demonstrates 26 letters and 13 words; installable on phones (web app manifest) |
-| Recognition model | `isl_mudra_combined_v9_bilstm`: 314 words + "no sign"; v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
+| Recognition model | `isl_mudra_combined_v11a_bilstm`: 324 words + "no sign" (v9 + the app's 93 recorded takes of 17 words); v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
+| Recognition modes | SignLine words (v11a, default); Merged: v11a + 8 words from the teammate's models, each word from the most accurate model that knows it; Auto: Merged words and A-Z fingerspelling from one camera stream (`docs/TEAMMATE_MODELS.md`) |
+| Avatar signs real words | Typed or spoken words that SignLine recognises are performed from real recorded signs (landmarks of the training videos turned into arm, hand and finger rotations; an approximation). Other words are fingerspelled with the alphabet photos' hand shapes (arms placed in front of the chest); NAMASTE is built from landmarks and GOODBYE, YES, NO, HELP keep hand-made animations |
+| Avatar choice | Drop a rigged Mixamo `.fbx` or `.glb` into `app/frontend/src/assets/avatars/` and pick it in the dropdown on the 3D avatar; the signs are retargeted from the default Y Bot |
+| Model choice (from a teammate's branch) | Communication lets you pick the word model; each shows its measured accuracy. The default is v11a. A teammate's static-pose model is an opt-in experiment: on our test clips it got 0 of 22 shared-word signs right (v9: 22 of 22) |
 | Barriers between words | Taught words get their own boundary so look-alike words are not mixed up; *Teach a sign* warns about inconsistent takes and look-alike words. Measured with 150 taught words: mix-ups 7.0% → 5.0%. See [`docs/SCALING_VOCABULARY.md`](docs/SCALING_VOCABULARY.md) |
 | Live recognition (Communication) | *Words*: sign start/end detection, automatic word adding, spoken sentence, "How to sign it" examples; *Spell* and *Phrase* modes (below) |
 | New words from the Teach a sign page | Work immediately (few-shot), stored for retraining |
@@ -191,7 +195,7 @@ python training/scripts/eval_continuous.py --model app/backend/models/<model> \
 
 `mudra_words.yaml` reproduces the deployed model (about 45 minutes on an RTX 5060).
 Letters and phrases are rebuilt with the steps in `docs/SIGN_LIBRARY.md`.
-Tests: `pytest training app/backend/tests` (109) and `npm test` in `app/frontend` (15).
+Tests: `pytest training app/backend/tests` (112) and `npm test` in `app/frontend` (18).
 
 ## Data and licences
 

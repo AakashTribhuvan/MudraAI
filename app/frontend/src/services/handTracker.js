@@ -39,15 +39,47 @@ export const POSE_CONNECTIONS = [
   [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24]
 ]
 
-async function createWithFallback(factory, vision, options) {
+async function createWithFallback(factory, vision, options, first = 'GPU') {
+  const other = first === 'GPU' ? 'CPU' : 'GPU'
   try {
-    const landmarker = await factory.createFromOptions(vision, { ...options, baseOptions: { ...options.baseOptions, delegate: 'GPU' } })
-    return { landmarker, delegate: 'GPU' }
-  } catch (gpuError) {
-    console.warn('GPU delegate unavailable, falling back to CPU:', gpuError)
-    const landmarker = await factory.createFromOptions(vision, { ...options, baseOptions: { ...options.baseOptions, delegate: 'CPU' } })
-    return { landmarker, delegate: 'CPU' }
+    const landmarker = await factory.createFromOptions(vision, { ...options, baseOptions: { ...options.baseOptions, delegate: first } })
+    return { landmarker, delegate: first }
+  } catch (firstError) {
+    console.warn(`${first} delegate unavailable, falling back to ${other}:`, firstError)
+    const landmarker = await factory.createFromOptions(vision, { ...options, baseOptions: { ...options.baseOptions, delegate: other } })
+    return { landmarker, delegate: other }
   }
+}
+
+const HAND_OPTIONS = {
+  baseOptions: { modelAssetPath: HAND_MODEL },
+  runningMode: 'VIDEO',
+  numHands: 2,
+  minHandDetectionConfidence: 0.5,
+  minHandPresenceConfidence: 0.5,
+  minTrackingConfidence: 0.5
+}
+const POSE_OPTIONS = {
+  baseOptions: { modelAssetPath: POSE_MODEL },
+  runningMode: 'VIDEO',
+  numPoses: 1,
+  minPoseDetectionConfidence: 0.5
+}
+
+// Faster delegate: some laptops run MediaPipe slower on the (integrated) GPU than on the CPU. The first
+// PROBE_FRAMES frames of a session are timed; above SLOW_MS the other delegate is loaded and timed too, the faster
+// one is kept and remembered in this browser (DELEGATE_KEY), so the next session starts with it.
+const PROBE_WARMUP = 5
+const POSE_SLOW_MS = 50
+const PROBE_FRAMES = 20
+const SLOW_MS = 35
+const DELEGATE_KEY = 'signline_tracker_delegate'
+const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+const readDelegate = () => {
+  try { return JSON.parse(localStorage.getItem(DELEGATE_KEY) || 'null')?.delegate || 'GPU' } catch { return 'GPU' }
+}
+const saveDelegate = (delegate, timings) => {
+  try { localStorage.setItem(DELEGATE_KEY, JSON.stringify({ delegate, timings, at: Date.now() })) } catch { /* private window */ }
 }
 
 const ema = (prev, value, k = 0.1) => (prev ? (1 - k) * prev + k * value : value)
@@ -118,20 +150,10 @@ class HandTrackerService {
 
     this.initializationPromise = (async () => {
       const vision = await FilesetResolver.forVisionTasks(WASM_PATH)
-      const hands = await createWithFallback(HandLandmarker, vision, {
-        baseOptions: { modelAssetPath: HAND_MODEL },
-        runningMode: 'VIDEO',
-        numHands: 2,
-        minHandDetectionConfidence: 0.5,
-        minHandPresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      })
-      const pose = await createWithFallback(PoseLandmarker, vision, {
-        baseOptions: { modelAssetPath: POSE_MODEL },
-        runningMode: 'VIDEO',
-        numPoses: 1,
-        minPoseDetectionConfidence: 0.5
-      })
+      this.vision = vision
+      const first = readDelegate()
+      const hands = await createWithFallback(HandLandmarker, vision, HAND_OPTIONS, first)
+      const pose = await createWithFallback(PoseLandmarker, vision, POSE_OPTIONS, first)
       this.handLandmarker = hands.landmarker
       this.poseLandmarker = pose.landmarker
       this.delegate = hands.delegate === 'GPU' && pose.delegate === 'GPU' ? 'GPU' : 'CPU'
@@ -245,6 +267,51 @@ class HandTrackerService {
     video.requestVideoFrameCallback(onFrame)
   }
 
+  /** Times the current delegate; if slow, loads and times the other one, keeps the faster (see SLOW_MS). */
+  _probeDelegate(ms) {
+    const p = (this.probe ||= { samples: [], timings: {}, done: false, loading: false })
+    if (p.done || p.loading) return
+    p.samples.push(ms)
+    if (p.samples.length < PROBE_WARMUP + PROBE_FRAMES) return
+    const current = this.delegate
+    p.timings[current] = Math.round(median(p.samples.slice(PROBE_WARMUP)))
+    p.samples = []
+    const other = current === 'GPU' ? 'CPU' : 'GPU'
+    if (p.timings[other] == null && p.timings[current] > SLOW_MS && this.vision) {
+      p.loading = true // keep tracking with the current delegate while the other one loads
+      Promise.all([
+        HandLandmarker.createFromOptions(this.vision, { ...HAND_OPTIONS, baseOptions: { ...HAND_OPTIONS.baseOptions, delegate: other } }),
+        PoseLandmarker.createFromOptions(this.vision, { ...POSE_OPTIONS, baseOptions: { ...POSE_OPTIONS.baseOptions, delegate: other } })
+      ]).then(([hands, pose]) => {
+        p.previous = { delegate: current, hands: this.handLandmarker, pose: this.poseLandmarker }
+        this.handLandmarker = hands
+        this.poseLandmarker = pose
+        this.lastPose = null
+        this.delegate = other
+      }).catch((err) => {
+        console.warn(`${other} delegate could not be loaded:`, err)
+        p.done = true
+      }).finally(() => { p.loading = false })
+      return
+    }
+    // decision: the faster delegate stays, the other is closed
+    if (p.previous && p.timings[p.previous.delegate] < p.timings[current]) {
+      this.handLandmarker.close?.()
+      this.poseLandmarker.close?.()
+      this.handLandmarker = p.previous.hands
+      this.poseLandmarker = p.previous.pose
+      this.lastPose = null
+      this.delegate = p.previous.delegate
+    } else if (p.previous) {
+      p.previous.hands.close?.()
+      p.previous.pose.close?.()
+    }
+    p.previous = null
+    p.done = true
+    saveDelegate(this.delegate, p.timings)
+    console.info('Hand tracking delegate:', this.delegate, p.timings)
+  }
+
   /**
    * Continuous processing loop: one hand + pose inference per new video frame.
    */
@@ -260,13 +327,17 @@ class HandTrackerService {
       try {
         const started = performance.now()
         const hands = this.handLandmarker.detectForVideo(video, timestamp)
-        // The body moves slowly: pose every other frame halves its cost and keeps hands at full rate
+        // The body moves slowly: pose every other frame halves its cost and keeps hands at full rate; when
+        // tracking is the bottleneck (above POSE_SLOW_MS per frame) every third frame
         this.frameCount = (this.frameCount || 0) + 1
-        if (this.frameCount % 2 === 1 || !this.lastPose) {
+        const poseEvery = this.inferenceMs > POSE_SLOW_MS ? 3 : 2
+        if (this.frameCount % poseEvery === 1 || !this.lastPose) {
           this.lastPose = this.poseLandmarker.detectForVideo(video, timestamp)
         }
         const pose = this.lastPose
-        this.inferenceMs = ema(this.inferenceMs, performance.now() - started)
+        const spent = performance.now() - started
+        this.inferenceMs = ema(this.inferenceMs, spent)
+        this._probeDelegate(spent)
         const dt = this.lastFrameAt ? (timestamp - this.lastFrameAt) / 1000 : 0
         this.lastFrameAt = timestamp
         if (dt > 0) this.fps = ema(this.fps, 1 / dt)

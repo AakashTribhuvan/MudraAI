@@ -38,7 +38,17 @@ class SignRecognizer {
     this.onPrediction = null // whole-sign result when a sign ends
     this.onActivity = null // 'signing' when a sign starts, 'ended' when it is classified, 'idle' when it was too short
     this.onProvisional = null // live best guess while signing (display only)
+    this.onLetter = null // a fingerspelled letter (model "auto": words and letters together)
     this.onStatusChange = null
+    this.model = 'sequence' // GET /models id; sent with every session start
+  }
+
+  /** Choose the word model for the next session (GET /models ids, e.g. "sequence", "intro_static"). */
+  setModel(model) {
+    if (typeof model !== 'string' || !/^[a-z0-9_]+$/.test(model)) throw new Error(`Unknown recognition model: ${model}`)
+    if (this.model === model) return
+    this.model = model
+    this.reset() // the next frame starts a new session with the chosen model
   }
 
   _setStatus(status, error = null) {
@@ -74,13 +84,14 @@ class SignRecognizer {
     this.ws = ws
     this.started = false
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'start', width, height }))
+      ws.send(JSON.stringify({ type: 'start', width, height, model: this.model }))
       this.started = true
     }
     ws.onmessage = (msg) => {
       const ev = JSON.parse(msg.data)
       if (ev.event === 'sign_started') this.onActivity?.('signing')
       else if (ev.event === 'provisional') this.onProvisional?.(ev.guess)
+      else if (ev.event === 'letter') this.onLetter?.(ev)
       else if (ev.event === 'too_short') this.onActivity?.('idle')
       else if (ev.event === 'sign_ended') {
         this.onActivity?.('ended')

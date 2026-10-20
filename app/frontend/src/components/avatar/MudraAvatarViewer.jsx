@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Sparkles, Play, RotateCcw, Gauge, AlertCircle, RefreshCw } from 'lucide-react'
 import { useAvatarRenderer } from '../../avatar/useAvatarRenderer'
+import { useAvatarChoice } from '../../avatar/avatarCatalog'
 
 export default function MudraAvatarViewer({
   signText = 'HELLO',
@@ -13,10 +14,15 @@ export default function MudraAvatarViewer({
   const [activeSubtitle, setActiveSubtitle] = useState('')
   const [speed, setSpeed] = useState(1.2)
   const [retryKey, setRetryKey] = useState(0)
+  const [warning, setWarning] = useState(null)
+  const { avatar, avatars, choose } = useAvatarChoice()
+  useEffect(() => { setWarning(null); setIsModelLoading(true); setLoadError(null) }, [avatar.id])
 
   const { executeSignSequence, resetToDefaultPose } = useAvatarRenderer({
     containerRef: canvasHostRef,
-    modelPath: '/ybot.glb',
+    modelPath: avatar.url,
+    modelType: avatar.type,
+    onWarning: setWarning,
     animationSpeed: speed,
     pauseDuration: 300,
     onTextUpdate: (char) => {
@@ -73,6 +79,16 @@ export default function MudraAvatarViewer({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {avatars.length > 1 && (
+            <label className="flex items-center">
+              <span className="sr-only">Avatar model</span>
+              <select value={avatar.id} onChange={(e) => choose(e.target.value)} disabled={isModelLoading && !loadError}
+                      title="Choose the avatar model (files in app/frontend/src/assets/avatars)"
+                      className="max-w-[9.5rem] truncate rounded-full border border-mudra-lavender-200 bg-white/85 px-2.5 py-1 text-[11px] font-bold text-mudra-indigo-800 backdrop-blur-md">
+                {avatars.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </label>
+          )}
           <button
             type="button"
             onClick={handleSpeedToggle}
@@ -115,6 +131,12 @@ export default function MudraAvatarViewer({
             <div className="text-[11px] text-mudra-indigo-500 font-mono mt-0.5">
               Mixamo Rig Skeleton
             </div>
+          </div>
+        )}
+
+        {warning && !loadError && !isModelLoading && (
+          <div role="status" className="absolute bottom-2 left-2 right-2 z-10 rounded-xl border border-amber-300 bg-amber-50/95 px-3 py-2 text-[11px] font-semibold text-amber-900">
+            {warning}
           </div>
         )}
 

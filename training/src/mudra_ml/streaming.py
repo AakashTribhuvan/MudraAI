@@ -284,9 +284,12 @@ class ModelBundle:
 class StreamingRecognizer:
     """Segmenter + whole-sign classification. Feed frames, receive events."""
 
-    def __init__(self, bundle: ModelBundle, cfg: SegmenterConfig, width: int, height: int, custom=None):
+    def __init__(self, bundle: ModelBundle, cfg: SegmenterConfig, width: int, height: int, custom=None, fallback=None):
         self.bundle, self.width, self.height = bundle, width, height
         self.custom = custom  # optional mudra_ml.fewshot.CustomWordBank
+        # optional second model for words this one does not know: fallback(segment, width, height, result) ->
+        # result or None, asked only when this model is "uncertain" (never on "no sign", so fidgets stay quiet)
+        self.fallback = fallback
         self.segmenter = SignSegmenter(cfg, width, height)
         self.cfg = cfg
         self.threshold = cfg.commit_threshold if cfg.commit_threshold is not None else bundle.threshold
@@ -319,6 +322,8 @@ class StreamingRecognizer:
             result = {**result, "status": "uncertain", "sign": None, "reason": "outside_word_boundary"}
         if self.custom is not None and len(self.custom):
             result = self.custom.decide(emb.mean(axis=0), result) or result
+        if result["status"] == "uncertain" and self.fallback is not None:
+            result = self.fallback(segment, self.width, self.height, result) or result
         if result["status"] == "ok":
             if self.last_word and self.last_word[0] == result["sign"] and frame.t - self.last_word[1] < self.cfg.cooldown_s:
                 result = {**result, "status": "duplicate", "sign": None}

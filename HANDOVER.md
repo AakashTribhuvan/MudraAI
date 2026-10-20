@@ -6,12 +6,12 @@
 
 | Field | Value |
 |---|---|
-| Document version | 9 |
-| Last updated | 2026-10-18 |
-| Last updated at commit | the v9 + barriers commit of 2026-10-18 (Section 21) |
-| Deployed models | words: `app/backend/models/isl_mudra_combined_v9_bilstm` (314 words + `_BACKGROUND_`; v8 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99) |
+| Document version | 11 |
+| Last updated | 2026-10-20 |
+| Last updated at commit | the commit after `05e4f91`: avatar, teammate models, three modes, v10c/v11a (Section 21) |
+| Deployed models | words: `app/backend/models/isl_mudra_combined_v11a_bilstm` (324 words + `_BACKGROUND_`; v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
-| Tests | 109 backend passing (`pytest training app/backend/tests`: 74 + 6 sign library + 29 SignLine Emergency; data-dependent tests skip without `data/metadata`) + 15 frontend (`npm test` in `app/frontend`) |
+| Tests | 112 backend passing (`pytest training app/backend/tests`: 74 + 6 sign library + 3 model system + 29 SignLine Emergency; data-dependent tests skip without `data/metadata`) + 15 frontend (`npm test` in `app/frontend`) |
 | Repository | `https://github.com/Addy-coder786/Mudra` (remote `mudra`); older pushes: `Addy-coder786/ISL_Addy` (remote `origin`) |
 | Overall state | Recognition is accurate on new takes by **signers seen in training**; accuracy for new people is unmeasured (about 67% on unseen recording sessions); **live use on a real laptop webcam is not yet reliable** (Section 16). Audit: `docs/AUDIT_2026-10-13.md` |
 
@@ -137,7 +137,10 @@ build a sentence and speak it.
 | **SignLine Emergency** (SOS circle, bottom-right of every page) | **Prototype, demo mode** | buttons / simulated signs / personal gestures → rule-based report with provenance → user confirms → mock delivery to an in-app responder desk; contacts no one; 29 tests; checked in desktop and mobile screenshots. `docs/SIGNLINE_EMERGENCY.md` |
 | Accounts and roles | **Demo only** | no server accounts or passwords; role kept in the browser; anyone can open Admin (Section 16) |
 | Game Mode | Working (local) | 70 lessons over the 314 words, real recorded examples, quizzes, XP / streak / badges in localStorage; no leaderboard (needs accounts) |
-| Recognition model **v9** | Deployed 2026-10-18 | v8 recipe + the app's 30 recorded takes; test streams -0.2 to +2.2 points vs v8 everywhere; the owner's own takes 0-17% → 67-83% (6 clips, same session). `docs/SCALING_VOCABULARY.md` |
+| Recognition model **v11a** | Deployed 2026-10-20 | v10c + all 93 recorded takes (17 words; new FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME), takes x6, fine-tuned from v10c: owner's held-out takes 30/34 right and **0 wrong** (no mix-ups), other test 1,459 right / 13 wrong (v10c 1,456 / 18; v9 1,461 / 14) |
+| Recognition model **v10c** | Deployed 2026-10-20, now rollback | v9 + all 47 recorded takes (9 words, new FROM, PUNE), takes x6, fine-tuned from v9: owner's held-out takes 8/18 → 14/18 (test 5/9 → 8/9), other test 1,461 → 1,456 right (-0.3 points). `compare_word_models.py` |
+| Recognition model **v9** | Deployed 2026-10-18, now rollback | v8 recipe + the app's 30 recorded takes; test streams -0.2 to +2.2 points vs v8 everywhere; the owner's own takes 0-17% → 67-83% (6 clips, same session). `docs/SCALING_VOCABULARY.md` |
+| **Model system** (teammate's design, MitIndia `work/static-landmark-tracking`) | Selector in Communication *Words*; v9 default | `GET /models` lists each model with its measured accuracy; the teammate's static-pose model is opt-in: **0 of 22** shared-word signs right on our test clips vs **22 of 22** for v9, false alarms on 0.7% of other signs (`compare_static_model.py`). Since 8105c5e also the teammate's common-word (17) and ISL500 (14) video models and the Merged (v9 + 12 teammate words) and Auto (Merged + letters) modes; see `docs/TEAMMATE_MODELS.md` |
 | Barriers between words (custom words) | Per-word boundary on; quality report on *Teach a sign* | 150-word benchmark: mix-ups 7.0% → 5.0%, stolen known words 1.2% → 0.7% (test); "I don't know this sign" for known words built but off (costs too many known words) |
 | Recognition model v6 (history) | Replaced | clip accuracy 97.4-99.4% on held-out test (Section 13), **same signers and sessions as training** |
 | Continuous-stream recognition (simulated live use) | Working in benchmark | 90-98% correct, 0-2.2% wrong on held-out streams |
@@ -175,6 +178,9 @@ build a sentence and speak it.
 │   │   │   ├── recognizer.py   SignRecognizer: one-clip prediction for /predict; readable() labels
 │   │   │   ├── recordings.py   RecordingStore: saves Record-page signs (.npz + manifest_app.csv), custom-word bank
 │   │   │   ├── references.py   ReferenceClips: one real training example per word for /reference
+│   │   │   ├── static_pose.py  teammate's still-pose medoid model + live adapter (ported from MitIndia, logic unchanged)
+│   │   │   ├── static_top10.py, isl500_video.py  teammate's SVM features + video-word adapter (ported, 8105c5e)
+│   │   │   ├── extra_models.py  teammate models + the Merged router; auto_mode.py words + letters; safe_joblib.py
 │   │   │   └── library.py      letters (LetterModel + example hand shapes) and phrases (second SignRecognizer) for /library, /letters, /phrases
 │   │   ├── models/isl_mudra_combined_v8_desk_bilstm/   model.pt (state dict) + model_card.json (deployed; v6 beside it for rollback)
 │   │   ├── models/isl_letters_v1/, isl_phrases_v1_bilstm/   letter MLP (weights.npz) and phrase BiLSTM (docs/SIGN_LIBRARY.md)
@@ -207,7 +213,11 @@ build a sentence and speak it.
 │           │                   Navbar, Footer, IntroLoader, home/* are no longer used
 │           ├── context/        AccessibilityContext.jsx (contrast, motion, text size, speech rate);
 │           │                   SessionContext.jsx (DEMO sign-in: role + name in localStorage)
-│           ├── avatar/         useAvatarRenderer.js + Animations/ (26 Alphabets, 13 Words, defaultPose)
+│           ├── avatar/         useAvatarRenderer.js + Animations/ (26 Alphabets, 13 Words, defaultPose);
+│           │                   avatarCatalog.js: avatar models found in src/assets/avatars/ (dropdown on the viewer);
+│           │                   landmarkRetarget.js: recorded sign landmarks (/reference) -> avatar bone rotations;
+│           │                   letterClip (letter photos + made-up arms), trimRest (drops resting frames);
+│           │                   synthSigns.js: NAMASTE from landmarks; retargetCheck.js: agreement check (dev tool)
 │           └── services/
 │               ├── handTracker.js          MediaPipe HandLandmarker + PoseLandmarker on the webcam
 │               ├── signRecognizer.js       WebSocket client for /stream; exports toFrame, API_BASE_URL
@@ -401,8 +411,10 @@ available / Coming soon / Error), never colour alone.
 | `GET /health` | liveness | `status`, `model_loaded`, `model`, `num_signs` (excludes `_` classes), `device`, `error`, `custom_words` |
 | `GET /labels` | vocabulary | `count`, `labels[]`: `sign`, `label` (readable), `has_reference`, `test_correct`, `test_clips` (from the model card) |
 | `GET /model` | model card minus stats/classes | card fields + `num_signs`, `active_threshold` |
-| `GET /reference/{sign}` | one real training example (also `LETTER_A`-`LETTER_Z`: a still hand shape as 15 identical frames, `kind: "letter"`; phrases: `kind: "phrase"`) | `sign`, `label`, `fps` (≤15), `width`, `height`, `frames[]`: `hands` [2 × (21×[x,y,z]) or null], `pose` (33×[x,y,z,vis] or null); 404 if none |
+| `GET /reference/{sign}` | one real training example (also `LETTER_A`-`LETTER_Z`: a still hand shape as 15 identical frames, `kind: "letter"`, hands put in signer-left/right slots by their 3D shape (`library.chirality`), one-handed letters C L O U V always on the right (mirrored if needed); phrases: `kind: "phrase"`) | `sign`, `label`, `fps` (≤15), `width`, `height`, `frames[]`: `hands` [2 × (21×[x,y,z]) or null], `pose` (33×[x,y,z,vis] or null); 404 if none |
 | `POST /predict` | classify one pre-cut clip | request `PredictRequest`: `frames` (8-256) of `{hands:[{landmarks 21×3, handedness?, score}], pose: 33×3|4 or null}`, `width`, `height`, `mirrored`, `top_k` (1-10). Response: `status` (`ok`/`uncertain`/`no_hands`/`no_sign`), `sign`, `label`, `confidence`, `top_k[]`, `hand_rate`, `frames_received`, `threshold`, `model`, `inference_ms`. `no_hands` when < `MUDRA_MIN_HAND_RATE` (0.3) of frames show a hand; uses the model card threshold (0.85) |
+| `GET /models` | selectable word models | `models[]`: `id` (`sequence` = deployed, default; `merged`; `auto` = merged + letters; stream also accepts `intro_static`, `common_word_video`, `isl500_video`), `name`, `default`, `experimental`, `trained_words`, `live_words`, `test_accuracy` + `accuracy_split` + `accuracy_samples` (from the model card), `our_test` (our test-clip comparison, static model) |
+| `GET /labels?model=intro_static` | the static model's 10 live labels | same shape as `/labels`; unknown model → 400 |
 | `GET /library` | letters and phrases beyond `/labels` | `letters[]` / `phrases[]`: `sign` (`LETTER_A`…, phrase ids), `label`, `has_reference`; `models` (test top-1/top-3/top-5, thresholds) |
 | `POST /letters/predict` | fingerspelling letter from 1-30 frames (probabilities averaged) | request `{frames, width, height, top_k}` (frame format as `/predict`); response `status` (`ok`/`uncertain`/`no_hands`), `letter`, `sign`, `confidence`, `top_k[]` {`letter`, `sign`, `label`, `confidence`}, `frames_used` |
 | `POST /phrases/predict` | whole-phrase guesses for one recorded clip | same request/response as `/predict`, phrase model (no background class) |
@@ -419,7 +431,7 @@ CORS allows `localhost:3000/5173` and `127.0.0.1:3000/5173` plus `MUDRA_CORS_ORI
 Client → server:
 
 ```json
-{"type": "start", "width": 640, "height": 480}
+{"type": "start", "width": 640, "height": 480, "model": "sequence"}   // "model" optional: a GET /models id
 {"type": "frame", "t": 12.345,
  "hands": [{"landmarks": [[x, y, z], ... 21], "handedness": "Left", "score": 0.97}],
  "pose": [[x, y, z, visibility], ... 33] }
@@ -459,8 +471,11 @@ Backend environment variables (`app/backend/mudra_api/settings.py`, `main.py`), 
 | `MUDRA_EVENTS_LOG` | `experiments/logs/stream_events.jsonl` | per-sign decision log |
 | `MUDRA_RECORDINGS_DIR` | `data` | root for `processed/landmarks/app` and `metadata/manifest_app.csv` |
 | `MUDRA_SESSION_DIR` | unset (off) | opt-in: save each live `/stream` session's landmarks + client diagnostics as `.npz` for `training/scripts/replay_session.py`; needs the signer's consent |
+| `MUDRA_COMMON_WORD_VIDEO_MODEL_DIR` / `MUDRA_ISL500_VIDEO_MODEL` | `app/backend/models/common_word_video_baseline` / `.../isl500_video_pilot/model.joblib` | teammate's video-word models (opt-in; `combined` uses the first) |
+| `MUDRA_INTRO_STATIC_MODEL` | `app/backend/models/mudra_intro_static_pose_medoids_v1.npz` | teammate's static-pose model (opt-in in the selector; card `.json` beside it) |
 | `MUDRA_LETTERS_MODEL_DIR` / `MUDRA_LETTERS_LANDMARKS` | `app/backend/models/isl_letters_v1` / `data/processed/landmarks/letters` | letter model; local alphabet-photo landmarks for letter examples |
 | `MUDRA_PHRASES_MODEL_DIR` / `MUDRA_PHRASES_SPLIT` | `app/backend/models/isl_phrases_v1_bilstm` / `data/metadata/splits/phrases_v1/train.csv` | phrase model; split whose clips are phrase examples |
+| `MUDRA_REFERENCE_WORLD_DIR` | `data/processed/landmarks/reference_world` | world-landmark examples for the avatar (`extract_reference_world.py`; optional) |
 | `MUDRA_REFERENCE_SPLIT` | `data/metadata/splits/combined_words_v3/train.csv` | where reference examples come from |
 
 Frontend (`app/frontend/.env`, Vite): `VITE_API_URL` (default `http://localhost:8000`),
@@ -794,6 +809,7 @@ Other measurements:
 | Original rule-based / Random-Forest system | ~44% | original app |
 | Letters A-Z, held-out colour groups (1,070 photos) | 70.9% top-1, 83.8% top-3; both hands detected 83.5%, one hand 55.4%; answers on 54.3% at 93.8% precision (threshold 0.70 from validation) | `isl_letters_v1` |
 | Phrases, held-out videos (96, same signers) | 58.3% top-1, 81.3% top-5, macro-F1 0.51 | `isl_phrases_v1_bilstm` |
+| Teammate's static-pose model on our test clips (`combined_words_v4_app/test.csv`) | I, NICE, THANK_YOU, YOU: 0 of 22 right (v9: 22 of 22); answers on 10 of 1,479 other clips (0.7%); its own photo test 17.8% (13/73) | `mudra_intro_static_pose_medoids_v1` |
 | **Developer's live webcam, 2026-10-07** | **0 of 11 signs**; ~6.5 fps; 6 of 11 hit `max_length` | v6 |
 
 ---
@@ -816,9 +832,13 @@ Other measurements:
 | **phrases v1** | 2026-10-16 | `phrases_only.yaml` + seq_len 48, no background | 58.3% top-1 / 81.3% top-5 test videos |
 
 | **v9** | 2026-10-18 | `mudra_words_v9.yaml`: v8 recipe on `combined_words_v4_app` (+ 30 app takes of 6 words) | test streams 7 fps vs v8: -0.2 to +2.2 points on every source and framing; owner's takes 0-17% → 67-83% (6 clips); clip test 98.33% |
+| **v11a** | 2026-10-20 | `mudra_words_v11a.yaml`: init from v10c, `combined_words_v6_app_r6` (93 app takes / 17 words, x6), lr 1e-4, best epoch 31 | owner's takes: test 16/17, val 14/17, 0 wrong; other test 1,459 / 13 wrong; clip test 98.35%. With the taught-word bank: identical (no override, no mix-up) |
+| v11b | 2026-10-20 | same with x4, lr 3e-4 | owner's takes 30/34, other test 1,456 / 15 wrong (v11a better) |
+| **v10c** | 2026-10-20 | `mudra_words_v10c.yaml`: init from v9, `combined_words_v5_app_r6` (47 app takes of 9 words, each training take x6), lr 1e-4, 60 epochs (best 34) | owner's held-out takes: test 8/9, val 6/9 (v9 5/9, 3/9); other test clips 1,456 right / 18 wrong (v9 1,461 / 14); clip test 98.27% |
+| v10 / v10b | 2026-10-19/20 | same, takes x10 lr 5e-4 / x4 lr 3e-4 | v10: owner's takes 15/16 but other test 1,427 / 39 wrong (rejected); v10b: 13/18, other 1,454 / 20 (v10c better) |
 | v9 cosine (push-apart) | – | `mudra_words_v9_cos.yaml`, CosFace head | worse than v9 on validation streams (e.g. desk 63.9% vs 66.7%); not deployed |
 
-v9 is deployed (2026-10-18); v8 is kept for rollback (`MUDRA_MODEL_DIR`). Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
+v11a is deployed (2026-10-20); v10c and v9 are kept for rollback (`MUDRA_MODEL_DIR`). Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
 
 ---
 
@@ -840,6 +860,8 @@ v9 is deployed (2026-10-18); v8 is kept for rollback (`MUDRA_MODEL_DIR`). Earlie
 | Phrases inside the word model | not tried: at ~58% they would add wrong phrase guesses while people sign words | – |
 | Letters: 80 vs 200 epochs | validation 59.3% vs **62.2%** (chosen) | letter colour groups |
 | Letter photos: as given / 3x / 3x + border / 2x + sharpen / 4x + big border | any hand found in 44% / 38% / **52%** (used) / 40% / 52% of a 260-photo sample | detection only |
+| Teammate's static-pose model as the word model for its shared words | 0 of 22 vs v9 22 of 22 on our test clips; kept as an opt-in experiment (its other live words HELP, FOOD, NAME, WHAT, DO, FROM have no clips in our data) | our test split |
+| Teammate's ISL500 video model (14 words, 80.5% on 3 held-out signers) and top-10 static SVM | not compared: files not in the repository and saved as joblib (pickle can run code on load); need retraining here or a safe export | – |
 | Push-apart (cosine-margin) head for the word model | same clip accuracy on 164 words; fewer made-up answers with barriers, but worse validation streams for v9 | 150-word benchmark, v9 val streams |
 | "I don't know this sign" boundary around known words (`known_boundary_k`) | made-up answers ~48% → 10-19%, but known words answered 97% → 79.5% (86.3% push-apart); no strictness kept the drop within 3 points on validation | 150-word benchmark |
 | Leave out disagreeing takes (`outlier_z`) / margin between taught words | not chosen on validation (margin 0.0, outlier_z off) | 150-word benchmark |
@@ -861,7 +883,10 @@ v9 is deployed (2026-10-18); v8 is kept for rollback (`MUDRA_MODEL_DIR`). Earlie
    Request FDMSE-ISL (email), CISLR (form), iSign (Hugging Face).
 3. **Measure new people**: keep 2-3 people entirely out of training and record them as the test set (item 1c).
 4. **Letters and phrases**: 10-15 videos per phrase from several people; webcam-quality letter clips for I, H, J, M.
-4b. **"Other sign" class** against made-up answers: train the word model with out-of-vocabulary signs as their own
+4b. **Teammate's models**: ask for the ISL500 subset (15 signers with IDs: the first honest new-person test) as
+   landmark `.npz` or videos, and for any model as a safe format (`.npz` / torch state dict, not joblib); then retrain
+   here and compare with `compare_static_model.py`-style tests. Their fork should be updated to our `main` first.
+4c. **"Other sign" class** against made-up answers: train the word model with out-of-vocabulary signs as their own
    class and measure with `eval_fewshot_scale.py` (made-up) and `eval_continuous.py` (known words).
 5. **Product**: real accounts (item 1f), review by Deaf ISL users or an ISL teacher, confirm data licences (item 7),
    fill the legal pages.
@@ -980,8 +1005,9 @@ Reset: stop the server, delete `app/backend/var/`. Variables: `app/backend/.env.
 
 ## 18. Tests
 
-`pytest training app/backend/tests` → 109 passed (74 incl. 5 in `training/tests/test_barriers.py` + 6 in `test_library.py`
-+ 29 in `app/backend/tests/emergency`); `test_api.py` also checks the recordings `quality` report.
+`pytest app/backend/tests` → 59 passed (incl. 8 in `test_library.py`, 3 in `test_models.py`, 29 in `emergency/`);
+`pytest training` unchanged; `npm test` → 21 (6 for `landmarkRetarget.js`: rig, arm aiming, no pose, resting-frame trim,
+letter placement, relaxed unused arm); `test_api.py` also checks the recordings `quality` report.
 `npm test` → 15 (adds 3 for the letter and phrase paths: all 26 letters once, unique phrases, per-track unlocking, same-track quiz options).
 `npm test` (Vitest) in `app/frontend` → 12 passed (5 for camera practice: hand slots, similarity, rest detection;
 7 for Game Mode): curriculum covers the 314 words once, lesson unlocking, XP and
@@ -994,7 +1020,7 @@ first-pass bonus, streak, badges, quiz answers are among the options, words with
 | `training/tests/test_splits.py` | grouped splits, locked splits, leakage check, group stripping |
 | `training/tests/test_extractor.py` | extraction of a blank video (empty masks, save/load round trip), hand assignment by pose wrists and its handedness fallback |
 | `training/tests/test_phase2.py` | dataset, background samples, segment, close-up, desk and low-fps crops, models, old model cards, metrics and calibration, config merging, transfer init, an end-to-end training run, gap filling, per-recording test counts |
-| `app/backend/tests/test_library.py` | letter features ignore hand order and image scale, mirror, letter model forward pass, `/library`, `/reference/LETTER_A` + `/letters/predict`, `/phrases/predict` on a training clip |
+| `app/backend/tests/test_library.py` | letter features ignore hand order and image scale, mirror, letter model forward pass, `/library`, `/reference/LETTER_A` + `/letters/predict`, `/phrases/predict` on a training clip, hand chirality flips with a mirror, letter hands in their own slots |
 | `app/backend/tests/emergency/` | SignLine Emergency: scenarios A-I, state machine, sequence editing, questions, location, gestures, access control, responder flow, analytics privacy, provider swap, real adapter (full list in `docs/SIGNLINE_EMERGENCY.md`) |
 | `app/backend/tests/test_api.py` | /health, /labels, /model, /predict on held-out clips, no-hands, invalid payloads, missing model 503, early-sign behaviour, /stream WebSocket vs the Python implementation, segmenter states, parked hands, live-session saving, recordings store + custom words, custom-word decision, /reference |
 
@@ -1055,7 +1081,113 @@ that need the model or landmark data skip automatically when those files are mis
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
 
-### 2026-10-18 · v9 deployed; barriers between words
+### 2026-10-20 · v11a deployed: 17 recorded words, no mix-ups
+- Owner recorded 8 more words (FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME; 93 takes / 17 words).
+  v11a (from v10c, takes x6, lr 1e-4) vs v10c on `combined_words_v6_app_r4` val/test: owner's takes 30/34 vs 14/34,
+  **0 wrong** (the quality report's HELP / WHAT_TIME closeness caused no confusion); other test 1,459 / 13 wrong vs
+  1,456 / 18. Misses: TODAY unsure at 0.63 / 0.52 (the page still adds guesses >= 0.5), the same FRIEND and PUNE
+  validation takes as before. `compare_word_models.py --bank` scores model + the live taught-word bank (built
+  from train takes only): identical to the model alone, so the bank does not cause mix-ups.
+- Merged mode adapts by itself: FOOD, HELP, WATER, THIS are now ours, so 8 teammate words remain.
+- Tracking: owner's PC switched GPU (3,348 ms) -> CPU (43-73 ms) at night and kept the GPU (52-92 ms) in the
+  morning; camera median 13 fps (lighting). Pose now runs every 3rd frame when a frame takes > 50 ms.
+- Bugs: no errors in the server or website logs; `test_models.py` merged test no longer assumes which words the
+  teammate models supply.
+
+### 2026-10-20 · v10c deployed: the owner's recorded words; faster tracking delegate
+- Owner: recorded signs must be recognised properly; raise the fps. v9 on the owner's held-out takes: 5/9 test,
+  3/9 val; WE (recorded 2026-10-19) 0/5, FROM and PUNE not in v9. `build_app_split.py --train-repeat N` lists each
+  app training take N times; three fine-tunes from v9 compared with `compare_word_models.py` (recorded takes and
+  other test clips separately): x10 lost 34 right answers elsewhere (rejected); **v10c** (x6, lr 1e-4) deployed:
+  owner's takes 14/18 (test 8/9), other test -0.3 points. Still missed: FRIEND val take (hands in view the whole
+  take, unlike the others), PUNE val (recorded at 12-14 fps; PUNE and TODAY are each other's nearest words), TODAY
+  (0.68 and 0.04). More takes in better light are the fix.
+- FPS: live log showed camera 4-27 fps (dim light) and tracking up to 646 ms per frame on the GPU. `handTracker.js`
+  now times the first 20 frames; above 35 ms it loads the other delegate (GPU <-> CPU), keeps the faster and
+  remembers it per browser (`signline_tracker_delegate`). Headless check: GPU 4,259 ms -> CPU 59 ms. Not yet
+  confirmed on the owner's PC (see `client_diag` in `/events`).
+
+### 2026-10-19 · three recognition modes: v9, Merged, Auto
+- Owner's request: keep v9; a second model with all experimental models + v9 keeping the most accurate word; an
+  auto mode running all models with letters. Merged = router (`MergedFallback`): v9's 314 words + 12 teammate words
+  (10 common-word, MYSELF/THIS from ISL500), each word from the most accurate model that has it; static models
+  (< 50%) give none (DO, FROM, HOW, NAME, NOT out). Our test: 0 wrong answers added (v9 uncertain on 17 of 1,501).
+  Auto (`auto_mode.py`) = Merged + letters in one stream (server-side Spell-mode rule, only with no sign in progress
+  and a raised hand): same words as v9 when streamed (638 = 638), false letters on 3/1,501 word clips. Replaces the
+  `combined` mode below; dropdown now v9 / Merged / Auto. Spelling and live accuracy not measured.
+  `eval_merged_auto.py`; `test_models.py` 6 -> 7. Details `docs/TEAMMATE_MODELS.md`.
+
+### 2026-10-19 · teammate's packaged models (MitIndia `8105c5e`) imported and combined
+- Owner's request: find the branch with the teammate's models and datasets, import them, use them with ours.
+  `work/static-landmark-tracking` has 4 new models; **no datasets** (videos/landmarks stayed local; only ISL500
+  download scripts, research/academic licence). Nothing downloaded. Details: `docs/TEAMMATE_MODELS.md`.
+- Safety: `.joblib` loaded only via `safe_joblib.py` (allow-list unpickler; contents: sklearn Pipeline /
+  StandardScaler / SVC / CalibratedClassifierCV + numpy); `model.pt` with `weights_only=True`.
+- On our test split (`compare_teammate_models.py`), shared words, teammate vs v9: common-word 23/41 vs 38/41,
+  ISL500 4/43 vs 43/43, SignLine-26 0/92 vs 89/92, static-top10 0/22 vs 22/22. v9 stays default for all its words.
+- New selectable `combined`: v9 + EAT, FOOD, GO, HELP, NO, PLEASE, WATER, WHAT, WHERE, YES from the common-word
+  model, asked only when v9 is uncertain, >= 0.7 confidence (`StreamingRecognizer(fallback=)`): 0 wrong answers
+  added on 1,501 test clips (v9 uncertain on 20). Live accuracy not measured. `common_word_video`, `isl500_video`
+  selectable alone; SignLine-26 and static-top10 not offered. Their unmeasured segmenter re-tuning not adopted.
+- Tests: `test_models.py` 3 -> 6 (safe loader refuses code, combined labels, fallback rules).
+
+### 2026-10-19 · avatar fixes: real letters, fingers, word timing, broken hand-made words
+- Owner's report: letters wrong ("instead of A it shows B"), elbow / arm / fingers not working, words not showing the
+  proper action. New objective check `retargetCheck.js` (browser console: `checkWords(40)`, `checkLetters()`): solve a
+  clip, apply it to Y Bot, compare every limb's direction with the signer's. Before: arms, wrists, palms < 3 deg, but
+  finger middle/end joints 15.5 deg mean, 12.4% of frames > 30 deg (the joints bent sideways from the signer's plane).
+- Fingers: each knuckle now turns about its own bone (<= 30 deg) so the next joint bends in the signer's plane; middle
+  joint limit 110 -> 120 deg. 40 words: finger joints 15.5 -> 8.6 deg mean, > 30 deg 12.4% -> 5.4%; rest unchanged.
+- Letters: the 26 hand-made letter animations (Euler angles from the original package, never checked against ISL,
+  partial axes so a letter kept parts of the previous one) are replaced by the alphabet-photo hand shapes
+  (`/reference/LETTER_X`) with made-up arms (`letterClip`: hands sized to the avatar, placed in front of the chest as in
+  the photo, two-bone IK preferring low elbows); hand-made letters stay only as a fallback. Server: letter hands were
+  slotted by image x, which is meaningless on close-up photos; now by 3D chirality (thumb side of the palm plane,
+  calibrated on the word videos: 96% right when |c| > 0.15), photos with clear chirality and the usual hand layout
+  preferred, two-handed threshold 0.5 -> 0.2 (C L O U V <= 11% two-handed photos, all others >= 28%), one-handed
+  letters on the right hand. 26 letters: arms 0 deg, hand direction 1.8, palm 3.2, finger joints 10.6 deg mean (33.5
+  before the slot fix). Checked by eye against the photo landmarks: A B C K L V.
+- Words: recordings start and end with the hands down (~41% of frames): trimmed (`trimRest`), so signs follow each
+  other. Clip smoothing is per 1/60 s (was per rendered frame, slow on slow devices). Hand-made words checked frame by
+  frame: NAMASTE (never joined the palms), PERSON, WATER (arm out sideways) did not show the sign: switched off
+  (`HANDMADE_OFF`), spelled until recorded; NAMASTE is now built from flat-hand landmarks (`synthSigns.js`), HOME uses
+  the HOUSE recording. GOODBYE, YES, NO, HELP kept. Not measured against signers; letter shapes depend on one photo.
+
+### 2026-10-19 · model system from the teammate's branch; best model chosen on our test data
+- Owner's request: read the teammate's most recently updated branch (AakashTribhuvan/MitIndia `work/static-landmark-tracking`,
+  `e040672`, 2026-10-18), implement its model system, compare accuracy and choose the best, with our dataset as test data.
+- Ported: model selection per stream session (`model` in the start message), `GET /models`, `/labels?model=`, the
+  static-pose model and its live adapter (`static_pose.py`, logic unchanged, numpy only), a selector in Communication.
+  Not ported: their ISL500 video and top-10 SVM models (files absent; joblib), tunnel/Worker scripts, downloaders, prototypes.
+- Measured (`training/scripts/compare_static_model.py`, our test split): shared words I, NICE, THANK_YOU, YOU: v9 22/22,
+  static 0/22; static false alarms 10/1,479 (0.7%). Decision by accuracy: v9 stays the default for every shared word; the
+  static model is opt-in only, labelled with both numbers.
+- Avatar choice (owner's request): put a rigged `.fbx` / `.glb` in `app/frontend/src/assets/avatars/` and it appears in a
+  dropdown on the 3D avatar viewer (remembered per browser). The sign animations are written for Y Bot (bones rest at
+  rotation 0); other models are driven by retargeting: a hidden Y Bot plays the animation and each bone's world-space
+  rotation change is copied to the shown model every frame. Checked with a Mixamo character (Remy.fbx, not committed):
+  same rest pose and mid-sign pose as Y Bot in screenshots. Models are scaled to Y Bot's height; a model without
+  `mixamorig` bones shows a warning. Mixamo FBX nests same-named helper nodes inside bones: only the outermost is used.
+- Avatar signs real words (owner's request): text is matched (longest first, up to 4 words) against the word model's
+  vocabulary; a word with a recorded example (`/reference/{sign}`, the training clip used by "How to sign it") is
+  performed from that clip's landmarks (`landmarkRetarget.js`: upper arm, forearm, palm-oriented hand and every finger
+  joint aimed in world space; pose depth damped x0.5; light smoothing), then blends to the neutral pose. Words without a
+  recording keep the 13 hand-made animations, others are fingerspelled. Checked in frame sequences: THANK YOU, GOOD
+  MORNING on Y Bot and Remy. Not measured against signers; forearm twist and the face are not reproduced. The clips
+  come from local training data (`data/`, not in git): on a fresh clone the avatar falls back to the old behaviour.
+- Avatar bone assignment v2 (owner: "some bones are acting up"). A browser diagnostic over 25 recorded words found
+  v1's finger joints twisting about their own length in 30-39% of frames and knuckles / wrists flipping (>60 deg in one
+  frame) in 6-18%. Fixes (no downloads): centred landmark smoothing; elbow-plane roll for the upper arm and an elbow
+  hinge; knuckles swing without twist; finger middle/end joints as limited hinges; thumbs swing-only; part of the
+  hand's twist moved to the forearm, the rest limited. Then `training/scripts/extract_reference_world.py` re-extracted
+  the examples of 235 words (team + INCLUDE videos; ~54 min CPU) with MediaPipe world landmarks (metres, real depth)
+  into `data/processed/landmarks/reference_world/` (local); `/reference` serves them as `frames[].world` and the solver
+  prefers them. Flips now: finger joints 0.5-1.4%, knuckles 0.4-1.2%, wrists 0.5-1.9%, thumbs 0.1-0.3%, arms 0-2.2%
+  (finger twist 0% by construction). 79 words (INCLUDE pose release, no video here) keep image landmarks.
+  Researched and not downloaded: Kalidokit (MIT, VRM-oriented), SMPLer-X / SMPLest-X (GBs, SMPL-X registration,
+  research-only), SignAvatars (SMPL-X, ASL/GSL, not ISL), SignPose (ISL, release unconfirmed).
+
+### 2026-10-18 · `05e4f91` · v9 deployed; barriers between words
 - Owner's request: recorded words must not mix up or make up answers at 400-500 words; then "do all the things".
 - New: per-word boundary / margin / outlier options and quality report (`fewshot.py`, `recordings.py`, *Teach a sign*
   warnings), "next word" cue on Communication, cosine-margin head option (`sequence_model.py`), known-word boundaries

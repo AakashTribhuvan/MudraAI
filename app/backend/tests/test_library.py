@@ -102,3 +102,24 @@ def test_phrase_prediction_shape(client):
     res = client.post("/phrases/predict", json={"frames": frames, "width": clip["width"], "height": clip["height"]}).json()
     assert res["model"] == "isl_phrases_v1_bilstm" and len(res["top_k"]) == 5
     assert any(t["sign"] == "ARE_YOU_FREE_TODAY" for t in res["top_k"])  # a training clip: must be among the guesses
+
+
+def test_chirality_flips_with_a_mirror_image():
+    from mudra_api.library import chirality
+    rng = np.random.default_rng(0)
+    hand = rng.normal(size=(21, 3))
+    mirrored = hand * np.array([-1.0, 1.0, 1.0])
+    assert chirality(hand) == pytest.approx(-chirality(mirrored))
+
+
+@pytest.mark.skipif(not LETTER_DATA.exists(), reason="letter landmarks are local data")
+def test_letter_hands_sit_in_their_own_slots():
+    from mudra_api.library import LetterReferences, chirality
+    refs = LetterReferences(LETTER_DATA)
+    for letter in "CLOUV":  # one-handed letters: always on the signer's right
+        left, right = refs.get(f"LETTER_{letter}")["frames"][0]["hands"]
+        assert left is None and right is not None
+    for sign in refs.available:
+        left, right = refs.get(sign)["frames"][0]["hands"]
+        if left is not None and right is not None:
+            assert chirality(left) < chirality(right)

@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-19",
+  "split": "data/metadata/splits/combined_words_v4_app/test.csv",
+  "word_model": "isl_mudra_combined_v9_bilstm",
+  "model": "static_top10",
+  "vocabulary": 10,
+  "shared_words": [
+    "I",
+    "NICE",
+    "THANK_YOU",
+    "YOU"
+  ],
+  "label_mapping": {
+    "THANKYOU": "THANK_YOU",
+    "THANK": "THANK_YOU",
+    "I_ME_MINE_MY": "I"
+  },
+  "shared_clips": 22,
+  "model_correct": 0,
+  "model_wrong": 7,
+  "word_model_correct": 22,
+  "false_alarms": 541,
+  "other_clips": 1479,
+  "false_alarm_rate": 0.3658,
+  "per_word": {
+    "I": {
+      "clips": 5,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 5
+    },
+    "NICE": {
+      "clips": 2,
+      "model_correct": 0,
+      "model_wrong": 1,
+      "word_model_correct": 2
+    },
+    "THANK_YOU": {
+      "clips": 11,
+      "model_correct": 0,
+      "model_wrong": 5,
+      "word_model_correct": 11
+    },
+    "YOU": {
+      "clips": 4,
+      "model_correct": 0,
+      "model_wrong": 0,
+      "word_model_correct": 4
+    }
+  },
+  "not_in_our_vocabulary": [
+    "FOOD",
+    "HELP",
+    "HOW",
+    "NOT",
+    "WATER",
+    "WHAT"
+  ],
+  "note": "Our test clips come from the same signers as our word model's training data; the teammate's models were trained on other people's videos, so this comparison favours our word model."
+}

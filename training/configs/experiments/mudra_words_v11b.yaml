@@ -1,0 +1,15 @@
+# v11b candidate: v10c + every recorded take (93 takes / 17 words on 2026-10-20; new: FOOD, HELP, HOW_MUCH, ME,
+# NEED, THIS, WATER, WHAT_TIME), each training take listed 4 times. Starts from v10c's weights.
+#     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v6_app_r4 --train-repeat 4
+#     python training/scripts/train.py --config mudra_words_v11b.yaml --name combined_v11b
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v10c_20261019-234506
+
+data:
+  split_dir: data/metadata/splits/combined_words_v6_app_r4
+
+train:
+  epochs: 60
+  warmup_epochs: 2
+  patience: 25
+  lr: 0.0003

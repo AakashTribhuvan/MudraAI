@@ -101,12 +101,13 @@ export default function UserHomePage() {
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sl-cream-300 px-5 py-3">
           <h2 className="font-display text-lg font-bold">SignLine avatar</h2>
-          <StatusPill status="live">13 words + A–Z fingerspelling</StatusPill>
+          <StatusPill status="live">314 recorded signs + A–Z fingerspelling</StatusPill>
         </div>
         <div className="grid gap-4 p-5 md:grid-cols-[1fr_1.2fr] md:items-center">
           <p className="text-sm text-sl-ink-600">
-            The 3D avatar signs words typed or spoken on the Communication page (Voice → Avatar). It knows 13 words plus the
-            alphabet; other words are fingerspelled.
+            The 3D avatar signs words typed or spoken on the Communication page (Voice → Avatar). Words SignLine recognises are
+            performed from real recorded signs (an approximation of the signer's arm and hand movement); 5 more are
+            built in, and other words are fingerspelled with hand shapes from real ISL alphabet photos.
           </p>
           <MudraAvatarViewer signText="HELLO" className="h-[300px] w-full" />
         </div>

@@ -29,7 +29,7 @@ def _optional_float(name: str) -> float | None:
 @dataclass
 class Settings:
     model_dir: Path = field(
-        default_factory=lambda: Path(os.getenv("MUDRA_MODEL_DIR", BACKEND_DIR / "models" / "isl_mudra_combined_v9_bilstm"))
+        default_factory=lambda: Path(os.getenv("MUDRA_MODEL_DIR", BACKEND_DIR / "models" / "isl_mudra_combined_v11a_bilstm"))
     )
     device: str = field(default_factory=lambda: os.getenv("MUDRA_DEVICE", "cpu"))
     cors_origins: list[str] = field(default_factory=_origins)
@@ -50,9 +50,35 @@ class Settings:
     reference_split: Path = field(
         default_factory=lambda: Path(os.getenv("MUDRA_REFERENCE_SPLIT", BACKEND_DIR.parents[1] / "data" / "metadata" / "splits" / "combined_words_v3" / "train.csv"))
     )
+    # Optional world-landmark re-extraction of those examples (extract_reference_world.py), used by the avatar
+    reference_world_dir: Path = field(
+        default_factory=lambda: Path(os.getenv("MUDRA_REFERENCE_WORLD_DIR", BACKEND_DIR.parents[1] / "data" / "processed" / "landmarks" / "reference_world"))
+    )
     # Signs recorded in the app (landmarks only): data/processed/landmarks/app + data/metadata/manifest_app.csv
     recordings_dir: Path = field(
         default_factory=lambda: Path(os.getenv("MUDRA_RECORDINGS_DIR", BACKEND_DIR.parents[1] / "data"))
+    )
+    # Optional experimental still-pose model (teammate's MitIndia branch); selectable, never the default
+    intro_static_model: Path = field(
+        default_factory=lambda: Path(os.getenv(
+            "MUDRA_INTRO_STATIC_MODEL", BACKEND_DIR / "models" / "mudra_intro_static_pose_medoids_v1.npz"))
+    )
+    # Teammate's packaged video-word models (mudra_api/extra_models.py); selectable, never the default
+    common_word_video_model_dir: Path = field(
+        default_factory=lambda: Path(os.getenv(
+            "MUDRA_COMMON_WORD_VIDEO_MODEL_DIR", BACKEND_DIR / "models" / "common_word_video_baseline"))
+    )
+    signline_intro_video_model: Path = field(
+        default_factory=lambda: Path(os.getenv(
+            "MUDRA_SIGNLINE_INTRO_MODEL", BACKEND_DIR / "models" / "signline_intro_video" / "model.joblib"))
+    )
+    static_top10_model: Path = field(
+        default_factory=lambda: Path(os.getenv(
+            "MUDRA_STATIC_TOP10_MODEL", BACKEND_DIR / "models" / "static_top10_v2" / "model.joblib"))
+    )
+    isl500_video_model: Path = field(
+        default_factory=lambda: Path(os.getenv(
+            "MUDRA_ISL500_VIDEO_MODEL", BACKEND_DIR / "models" / "isl500_video_pilot" / "model.joblib"))
     )
     # Sign library beyond the word model (mudra_api/library.py): fingerspelling letters and whole phrases
     letters_model_dir: Path = field(

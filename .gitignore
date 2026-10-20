@@ -39,3 +39,7 @@ data/metadata/
 
 # SignLine Emergency local database and generated demo credentials (never committed)
 app/backend/var/
+# Avatar models dropped into the viewer's dropdown stay local: third-party characters (e.g. Mixamo) may not be
+# redistributed as files. Only the folder's README is tracked.
+app/frontend/src/assets/avatars/*
+!app/frontend/src/assets/avatars/README.md

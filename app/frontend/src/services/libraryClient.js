@@ -154,5 +154,17 @@ export function fetchLibrary() {
   return libraryCache
 }
 
+/** /models: selectable word models with their measured accuracy (fetched once per page load). */
+let modelsCache = null
+export function fetchModels() {
+  if (!modelsCache) {
+    modelsCache = fetch(`${API_BASE_URL}/models`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((body) => body.models || [])
+      .catch(() => { modelsCache = null; return [] })
+  }
+  return modelsCache
+}
+
 export const isLetter = (sign) => typeof sign === 'string' && sign.startsWith('LETTER_')
 export const letterOf = (sign) => sign.replace(/^LETTER_/, '')

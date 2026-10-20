@@ -5,6 +5,17 @@ import type { AnimationContext, AnimationFrame } from "./types";
  * Sets initial position with arms at sides and slight head tilt
  */
 export const setDefaultPose = (context: AnimationContext): void => {
+    context.animations.push(defaultPoseFrame());
+
+    // Start animation loop if idle
+    if (context.pending === false) {
+        context.pending = true;
+        context.animate();
+    }
+};
+
+/** The neutral pose as one frame of [bone, "rotation", axis, value, sign] instructions. */
+export const defaultPoseFrame = (): AnimationFrame => {
     const poseFrame: AnimationFrame = [];
 
     // Set neck angle for natural head position
@@ -30,11 +41,5 @@ export const setDefaultPose = (context: AnimationContext): void => {
         "+",
     ]);
 
-    context.animations.push(poseFrame);
-
-    // Start animation loop if idle
-    if (context.pending === false) {
-        context.pending = true;
-        context.animate();
-    }
+    return poseFrame;
 };

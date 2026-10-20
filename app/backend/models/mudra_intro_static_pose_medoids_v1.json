@@ -1,0 +1,100 @@
+{
+  "name": "mudra_intro_static_pose_medoids_v1",
+  "task": "still-image static-pose nearest-medoid baseline",
+  "source": "MudraPhoneWebcam/training_data/models/intro_static_pose_medoids.npz",
+  "feature_schema": "mudra_static_pose_v10",
+  "classes": 32,
+  "profiles": 59,
+  "live_eligible_classes": [
+    "DO",
+    "FOOD",
+    "FROM",
+    "HELP",
+    "I_ME_MINE_MY",
+    "NAME",
+    "NICE",
+    "THANK",
+    "WHAT",
+    "YOU"
+  ],
+  "test_samples": 73,
+  "test_accuracy": 0.1780821917808219,
+  "split": "PhoneWebcam intro static model evaluation; inferred filename groups, originals and horizontal mirrors grouped together",
+  "limitations": [
+    "Still-image nearest-medoid experiment, not a dynamic sign or sentence recognizer.",
+    "Folder labels are user-confirmed but not independently reviewed by an ISL-fluent signer.",
+    "Filename-derived groups are conservative guesses and signer identity is unknown.",
+    "Many labels have no held-out source group; live performance for those labels is unmeasured.",
+    "Do not tune weights or thresholds on the held-out test groups.",
+    "The split policy was adjusted during setup; test metrics are exploratory, not a confirmatory benchmark."
+  ],
+  "evaluation_on_our_test": {
+    "date": "2026-10-19",
+    "split": "data/metadata/splits/combined_words_v4_app/test.csv",
+    "word_model": "isl_mudra_combined_v9_bilstm",
+    "shared_words": [
+      "I",
+      "NICE",
+      "THANK_YOU",
+      "YOU"
+    ],
+    "label_mapping": {
+      "I_ME_MINE_MY": "I",
+      "THANK": "THANK_YOU",
+      "NICE": "NICE",
+      "YOU": "YOU"
+    },
+    "shared_clips": 22,
+    "word_model_correct": 22,
+    "static_correct": 0,
+    "static_false_alarms": 10,
+    "other_clips": 1479,
+    "static_false_alarm_rate": 0.0068,
+    "false_alarms_by_label": {
+      "NICE": 1,
+      "I": 2,
+      "NAME": 3,
+      "FOOD": 2,
+      "YOU": 2
+    },
+    "per_word": {
+      "I": {
+        "clips": 5,
+        "word_model_correct": 5,
+        "word_model_wrong": 0,
+        "static_correct": 0,
+        "static_wrong": 0
+      },
+      "NICE": {
+        "clips": 2,
+        "word_model_correct": 2,
+        "word_model_wrong": 0,
+        "static_correct": 0,
+        "static_wrong": 0
+      },
+      "THANK_YOU": {
+        "clips": 11,
+        "word_model_correct": 11,
+        "word_model_wrong": 0,
+        "static_correct": 0,
+        "static_wrong": 0
+      },
+      "YOU": {
+        "clips": 4,
+        "word_model_correct": 4,
+        "word_model_wrong": 0,
+        "static_correct": 0,
+        "static_wrong": 0
+      }
+    },
+    "untestable_live_labels": [
+      "DO",
+      "FOOD",
+      "FROM",
+      "HELP",
+      "NAME",
+      "WHAT"
+    ],
+    "note": "Our test clips come from the same signers as the word model's training data; the static model was built from other people's phone photos. The comparison therefore favours the word model."
+  }
+}

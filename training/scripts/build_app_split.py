@@ -4,6 +4,8 @@ Words with at least --min-takes good recordings join the training data: per word
 test and the one before it to validation (by recording order), the rest to train. Takes recorded by
 people listed in --holdout-signers all go to test (the honest "new person" test once teammates record).
 Without signer variety the test only measures new takes by the same person in the same session.
+--train-repeat N lists each app training take N times: a handful of takes per word among ~15,000 other clips
+would otherwise barely move the model (augmentation makes every repeat a slightly different clip).
 
     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v4_app
 """
@@ -13,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+from dataclasses import replace
 from collections import defaultdict
 
 from mudra_ml.config import project_path
@@ -26,6 +29,7 @@ def main() -> None:
     ap.add_argument("--name", default="combined_words_v4_app")
     ap.add_argument("--min-takes", type=int, default=5)
     ap.add_argument("--holdout-signers", nargs="*", default=[])
+    ap.add_argument("--train-repeat", type=int, default=1)
     args = ap.parse_args()
 
     splits = project_path("data/metadata/splits")
@@ -49,6 +53,8 @@ def main() -> None:
         for r in rows:
             r.split = "test" if r.signer_id in holdout else assign[r.sample_id]
             added[r.split].append(r)
+            if r.split == "train":
+                added["train"] += [replace(r, sample_id=f"{r.sample_id}#r{k}") for k in range(1, args.train_repeat)]
         report[word] = {s: sum(r.split == s for r in rows) for s in ("train", "val", "test")}
 
     out = splits / args.name
