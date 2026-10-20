@@ -8,7 +8,7 @@
 |---|---|
 | Document version | 12 |
 | Last updated | 2026-10-20 |
-| Last updated at commit | pending commit for the experimental model selector and camera-source controls (Section 21) |
+| Last updated at commit | `c61dcd4` plus the accompanying handover follow-up for the experimental model selector and camera-source controls |
 | Deployed models | words: `app/backend/models/isl_mudra_combined_v11a_bilstm` (324 words + `_BACKGROUND_`; v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
 | Tests | Current check: 21 frontend passing and 3 static-pose tests passing. Full backend tests are blocked by this machine's Torch DLL policy (`WinError 4551`) and missing `tensorboard`; full Ruff checks report existing issues in the upstream files. Changed backend files pass Ruff. |
@@ -1081,7 +1081,7 @@ that need the model or landmark data skip automatically when those files are mis
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
 
-### 2026-10-20 · pending · experimental pose-model selection and camera controls
+### 2026-10-20 · `c61dcd4` · experimental pose-model selection and camera controls
 - Added the experimental static-pose recognizer to `GET /models`; its label list now includes all trained
   classes and marks which 10 are eligible for live use. Communication can select it and reports frame-agreement
   confidence. Added camera-source selection to Communication, Practice and Teach a sign.
