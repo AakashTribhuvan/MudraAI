@@ -1081,7 +1081,7 @@ that need the model or landmark data skip automatically when those files are mis
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
 
-### 2026-10-20 · Communication (Sign -> Voice) mobile layout (not committed yet)
+### 2026-10-20 · Communication (Sign -> Voice) mobile layout · `80ffde2`
 - Owner: on phones the camera filled the screen and the detected sign was 2-3 scrolls below it. Causes: a phone rule
   `height: clamp(480px, 72dvh, 680px)` on the camera, and the stacked columns putting the manual-word chips and the
   word list between the camera and the results. Fix (CSS in `CommunicatePage.jsx`, all below 1024 px, desktop
