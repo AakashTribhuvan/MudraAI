@@ -16,6 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 import handTracker from '../services/handTracker'
+import CameraSourcePicker, { useCameraSources } from '../components/CameraSourcePicker'
 import { evaluateSignAttempt, isCoachableSign } from '../services/islClassifier'
 import { createSessionRecorder } from '../services/progressStore'
 import { ISL_VOCABULARY_LEXICON, ISLRTC_DICTIONARY_URL } from '../services/islDictionary'
@@ -29,6 +30,7 @@ export default function PracticePage({ targetSignId = 'HELLO', onNavigate }) {
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraLoading, setCameraLoading] = useState(false)
   const [cameraError, setCameraError] = useState(null)
+  const { sources: cameraSources, deviceId: cameraDeviceId, setDeviceId: setCameraDeviceId } = useCameraSources(cameraActive)
 
   // Real-time evaluation state (0% on startup / no hand)
   const [evaluation, setEvaluation] = useState({
@@ -120,7 +122,7 @@ export default function PracticePage({ targetSignId = 'HELLO', onNavigate }) {
     setCameraError(null)
     try {
       if (videoRef.current) {
-        await handTracker.startCamera(videoRef.current, handleMediaPipeResults)
+        await handTracker.startCamera(videoRef.current, handleMediaPipeResults, { deviceId: cameraDeviceId })
         setCameraActive(true)
       }
     } catch (err) {
@@ -129,6 +131,18 @@ export default function PracticePage({ targetSignId = 'HELLO', onNavigate }) {
       setCameraActive(false)
     } finally {
       setCameraLoading(false)
+    }
+  }
+
+  const handleCameraSourceChange = async (deviceId) => {
+    setCameraDeviceId(deviceId)
+    if (!cameraActive || !videoRef.current) return
+    handTracker.stopCamera()
+    try {
+      await handTracker.startCamera(videoRef.current, handleMediaPipeResults, { deviceId })
+    } catch (err) {
+      setCameraError(err?.message || 'Could not switch camera.')
+      setCameraActive(false)
     }
   }
 
@@ -447,6 +461,12 @@ export default function PracticePage({ targetSignId = 'HELLO', onNavigate }) {
                   >
                     <span>{cameraLoading ? 'Starting MediaPipe...' : 'Start Camera'}</span>
                   </button>
+                </div>
+              )}
+
+              {cameraSources.length > 1 && (
+                <div className="absolute top-4 right-4 z-30 rounded-xl bg-black/60 px-3 py-2">
+                  <CameraSourcePicker sources={cameraSources} deviceId={cameraDeviceId} onChange={handleCameraSourceChange} />
                 </div>
               )}
 

@@ -15,15 +15,23 @@ from mudra_ml.streaming import ModelBundle, SegmenterConfig, StreamingRecognizer
 from pydantic import BaseModel, Field
 
 from mudra_api import __version__
+from mudra_api.auto_mode import AutoRecognizer
+from mudra_api.extra_models import (
+    TEAMMATE_TEST_ACCURACY,
+    ExtraModels,
+    MergedFallback,
+    WordSource,
+    evaluation,
+    ours,
+    own_threshold,
+)
+from mudra_api.isl500_video import ISL500VideoStreamingRecognizer
 from mudra_api.library import Library
 from mudra_api.recognizer import SignRecognizer, readable
 from mudra_api.recordings import RecordingStore, frames_to_sequence, parse_frame
 from mudra_api.references import ReferenceClips
 from mudra_api.schemas import LetterRequest, PredictRequest, PredictResponse
 from mudra_api.settings import Settings
-from mudra_api.auto_mode import AutoRecognizer
-from mudra_api.extra_models import TEAMMATE_TEST_ACCURACY, ExtraModels, MergedFallback, WordSource, evaluation, ours, own_threshold
-from mudra_api.isl500_video import ISL500VideoStreamingRecognizer
 from mudra_api.static_pose import StaticPoseModel, StaticPoseStreamingRecognizer
 from signline_emergency.api import emergency_router
 
@@ -145,6 +153,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if library.letter_model is not None:
                 out.append({"id": "auto", "name": "Auto: merged words + A-Z letters", "default": False,
                             "experimental": True, **merged_info, "letters": True})
+        if intro_static is not None:
+            out.append({"id": "intro_static", "name": "Experimental introduction poses", "default": False,
+                        "experimental": True, "trained_words": len(set(intro_static.classes)),
+                        "live_words": len(intro_static.live_labels),
+                        "accuracy_split": "exploratory filename-group test; not signer-independent"})
         return {"models": out}
 
     @app.get("/labels")
@@ -153,7 +166,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if intro_static is None:
                 raise HTTPException(status_code=503, detail="The static-pose model is not installed.")
             live = sorted(intro_static.live_labels)
-            return {"count": len(live), "labels": [{"sign": s, "label": readable(s), "has_reference": False} for s in live]}
+            labels = sorted(set(intro_static.classes))
+            return {"count": len(labels), "labels": [
+                {"sign": s, "label": readable(s), "has_reference": False, "live": s in live}
+                for s in labels
+            ]}
         if model in ("common_word_video", "isl500_video"):
             words = extra.common_words() if model == "common_word_video" else extra.isl500_words()
             if not words:

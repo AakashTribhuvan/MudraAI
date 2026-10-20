@@ -14,10 +14,11 @@ from fastapi.testclient import TestClient
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from mudra_api.app import create_app
-from mudra_api.settings import Settings
 from mudra_ml.config import PROJECT_ROOT
 from mudra_ml.preprocessing.sequence import load_sequence
+
+from mudra_api.app import create_app
+from mudra_api.settings import Settings
 
 MODEL_DIR = BACKEND / "models" / "isl_mudra_combined_v8_desk_bilstm"
 TEST_SPLIT = PROJECT_ROOT / "data" / "metadata" / "splits" / "include" / "test.csv"
@@ -63,6 +64,49 @@ def test_health_and_labels(client):
     assert entry["label"] == "Good morning" and isinstance(entry["has_reference"], bool)
     card = client.get("/model").json()
     assert "feature_mean" not in card and card["active_threshold"] > 0
+    models = client.get("/models").json()["models"]
+    intro = next(model for model in models if model["id"] == "intro_static")
+    assert (intro["trained_words"], intro["live_words"], intro["experimental"]) == (32, 10, True)
+    intro_labels = client.get("/labels", params={"model": "intro_static"}).json()["labels"]
+    assert len(intro_labels) == 32
+    assert sum(label["live"] for label in intro_labels) == 10
+
+
+def test_intro_static_stream_uses_selected_model(client, monkeypatch):
+    instances = []
+
+    class StubStaticRecognizer:
+        def __init__(self, model, width, height):
+            instances.append(self)
+
+        def push(self, frame):
+            return {
+                "event": "sign_ended",
+                "state": "idle",
+                "result": {
+                    "status": "uncertain",
+                    "sign": None,
+                    "label": None,
+                    "confidence": 0.5,
+                    "top_k": [],
+                    "model": "intro_static",
+                    "score_type": "static_hold",
+                },
+                "stats": {},
+                "t0": frame.t,
+                "t1": frame.t,
+            }
+
+    monkeypatch.setattr("mudra_api.app.StaticPoseStreamingRecognizer", StubStaticRecognizer)
+    with client.websocket_connect("/stream") as ws:
+        ws.send_json({"type": "start", "width": 640, "height": 480, "model": "intro_static"})
+        ws.send_json({"type": "frame", "t": 1.0, "hands": [], "pose": None})
+        event = ws.receive_json()
+
+    assert len(instances) == 1
+    assert event["event"] == "sign_ended"
+    assert event["result"]["model"] == "intro_static"
+    assert event["result"]["score_type"] == "static_hold"
 
 
 def test_predicts_held_out_test_clips(client):

@@ -4,6 +4,7 @@ import { readableSign } from '../services/islDictionary'
 import handTracker from '../services/handTracker'
 import signRecognizer, { toFrame } from '../services/signRecognizer'
 import { listRecordings, saveRecording, deleteRecording } from '../services/recordingClient'
+import CameraSourcePicker, { useCameraSources } from '../components/CameraSourcePicker'
 
 // App words the trained model does not know yet (no training data so far)
 const SUGGESTED_WORDS = ['Namaste', 'Water', 'Help', 'Yes', 'No', 'Goodbye', 'Home', 'Person']
@@ -58,6 +59,7 @@ export default function RecordPage() {
 
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState(null)
+  const { sources: cameraSources, deviceId: cameraDeviceId, setDeviceId: setCameraDeviceId } = useCameraSources(cameraActive)
   const [backend, setBackend] = useState({ status: 'checking', error: null })
   const [signer, setSigner] = useState(readSigner)
   const [word, setWord] = useState(SUGGESTED_WORDS[0])
@@ -112,10 +114,22 @@ export default function RecordPage() {
   const startCamera = async () => {
     setCameraError(null)
     try {
-      await handTracker.startCamera(videoRef.current, handleResults)
+      await handTracker.startCamera(videoRef.current, handleResults, { deviceId: cameraDeviceId })
       setCameraActive(true)
     } catch (err) {
       setCameraError(err?.message || 'Could not start the camera.')
+    }
+  }
+
+  const handleCameraSourceChange = async (deviceId) => {
+    setCameraDeviceId(deviceId)
+    if (!cameraActive || !videoRef.current) return
+    handTracker.stopCamera()
+    try {
+      await handTracker.startCamera(videoRef.current, handleResults, { deviceId })
+    } catch (err) {
+      setCameraError(err?.message || 'Could not switch camera.')
+      setCameraActive(false)
     }
   }
 
@@ -213,6 +227,11 @@ export default function RecordPage() {
           <div className="relative aspect-[4/3] bg-mudra-indigo-900 rounded-3xl overflow-hidden shadow-xl border-2 border-mudra-indigo-700/90">
             <video ref={videoRef} className={`absolute inset-0 w-full h-full object-cover -scale-x-100 ${cameraActive ? 'opacity-100' : 'opacity-0'}`} playsInline muted />
             <canvas ref={canvasRef} width={640} height={480} className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none" />
+            {cameraSources.length > 1 && (
+              <div className="absolute top-4 right-4 z-30 rounded-xl bg-black/60 px-3 py-2 text-white">
+                <CameraSourcePicker sources={cameraSources} deviceId={cameraDeviceId} onChange={handleCameraSourceChange} />
+              </div>
+            )}
 
             {!cameraActive && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-6 gap-3">

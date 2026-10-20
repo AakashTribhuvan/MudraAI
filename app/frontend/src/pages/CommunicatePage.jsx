@@ -107,6 +107,11 @@ export default function CommunicatePage() {
   const lastSpokenRef = useRef('')
   const sentenceRef = useRef('')
   const [modelState, setModelState] = useState({ status: signRecognizer.status, info: null, error: null })
+  const [recognitionModels, setRecognitionModels] = useState([])
+  const [recognitionModel, setRecognitionModel] = useState(() => {
+    const saved = readPref('mudra.recognition_model', 'sequence')
+    return ['sequence', 'intro_static'].includes(saved) ? saved : 'sequence'
+  })
   // Words the camera model knows, so people can check a word before signing it
   const [vocab, setVocab] = useState([])
   const { speechRate } = useAccessibility()
@@ -117,6 +122,7 @@ export default function CommunicatePage() {
     : ISL_VOCABULARY_LEXICON.filter((v) => RULE_SIGNS.includes(v.id))
   const [vocabOpen, setVocabOpen] = useState(false)
   const [referenceSign, setReferenceSign] = useState(null) // word whose training example is shown
+  const selectedRecognitionModel = recognitionModels.find((model) => model.id === recognitionModel)
   // Words (trained word model, automatic) | Spell (fingerspelling letters) | Phrase (choose from top guesses)
   // "Next word" cue: a word was just added, so the next sign can start (a clear pause between words)
   const [nextCue, setNextCue] = useState(null)
@@ -146,12 +152,55 @@ export default function CommunicatePage() {
     setSuggestions([])
   }
   useEffect(() => {
+    signRecognizer.setModel(recognitionModel)
+  }, [recognitionModel])
+  useEffect(() => {
     if (modelState.status !== 'online') return
-    fetch(`${API_BASE_URL}/labels`)
+    fetch(`${API_BASE_URL}/labels?model=${encodeURIComponent(recognitionModel)}`)
       .then((r) => r.json())
       .then((body) => setVocab(body.labels || []))
       .catch(() => setVocab([]))
-  }, [modelState.status])
+  }, [modelState.status, recognitionModel])
+  useEffect(() => {
+    if (modelState.status !== 'online') return undefined
+    let active = true
+    fetch(`${API_BASE_URL}/models`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Model list request failed (${response.status}).`)
+        return response.json()
+      })
+      .then((payload) => {
+        if (!active) return
+        const models = payload.models || []
+        setRecognitionModels(models)
+        if (!models.some((model) => model.id === recognitionModel)) {
+          setRecognitionModel('sequence')
+          signRecognizer.setModel('sequence')
+          writePref('mudra.recognition_model', 'sequence')
+        }
+      })
+      .catch((error) => {
+        console.error('Could not load recognition model list:', error)
+        if (active) setRecognitionModels([])
+      })
+    return () => { active = false }
+  }, [modelState.status, recognitionModel])
+
+  const changeRecognitionModel = (model) => {
+    setRecognitionModel(model)
+    writePref('mudra.recognition_model', model)
+    setSuggestions([])
+    lastModelSignRef.current = null
+    setCurrentDetection({
+      sign: 'UNKNOWN',
+      confidence: 0,
+      isUnknown: true,
+      status: 'ready',
+      source: 'model',
+      model,
+      metadata: null
+    })
+  }
   const vocabMatches = vocabQuery.trim()
     ? vocab.filter((v) => v.label.toLowerCase().includes(vocabQuery.trim().toLowerCase()))
     : vocab
@@ -222,7 +271,7 @@ export default function CommunicatePage() {
       // Fully automatic: a confident result is added; an unsure one is added too (its best guess) when the
       // model gives it at least AUTO_ADD_MIN, with the runner-ups offered as optional one-tap replacements.
       const confident = p.status === 'ok'
-      const unsure = !confident && (p.status === 'uncertain' || p.status === 'no_sign') &&
+      const unsure = p.model !== 'intro_static' && !confident && (p.status === 'uncertain' || p.status === 'no_sign') &&
         (p.stats?.hand_rate ?? 1) >= 0.5 && top && top.confidence >= AUTO_ADD_MIN
       const added = confident ? { sign: p.sign, label: p.label } : unsure ? { sign: top.sign, label: top.label } : null
       setCurrentDetection({
@@ -230,6 +279,10 @@ export default function CommunicatePage() {
         label: added ? added.label : null,
         candidate: top ? top.label : null,
         confidence: Math.round((confident ? p.confidence : top?.confidence ?? 0) * 100),
+        model: p.model || 'sequence',
+        scoreType: p.score_type || null,
+        distance: p.distance ?? null,
+        threshold: p.threshold ?? null,
         isUnknown: !added,
         status: confident ? 'ok' : unsure ? 'unsure' : (p.stats?.hand_rate ?? 0) >= 0.5 ? 'missed' : p.status,
         source: p.custom ? 'custom' : 'model',
@@ -260,7 +313,15 @@ export default function CommunicatePage() {
       if (isPausedRef.current) return
       if (state === 'signing') {
         clearTimeout(autoSpeakTimerRef.current) // still signing: the sentence is not finished
-        setCurrentDetection({ sign: 'UNKNOWN', confidence: 0, isUnknown: true, status: 'signing', source: 'model', metadata: null })
+        setCurrentDetection({
+          sign: 'UNKNOWN',
+          confidence: 0,
+          isUnknown: true,
+          status: 'signing',
+          source: 'model',
+          model: signRecognizer.model,
+          metadata: null
+        })
       } else if (state === 'idle') {
         // too short to be a sign: go back to waiting instead of staying on "Signing…"
         setCurrentDetection((prev) => (prev.status === 'signing'
@@ -975,6 +1036,38 @@ export default function CommunicatePage() {
             <div className="glass-card rounded-3xl p-5 sm:p-6 border border-mudra-lavender-200/80 shadow-lg space-y-7">
               <InputModeSwitch mode={inputMode} onChange={changeInputMode} />
 
+              {inputMode === 'words' && (
+                <div className="space-y-2 rounded-2xl border border-mudra-lavender-200 bg-white/80 p-3">
+                  <label htmlFor="recognition-model" className="block text-xs font-bold text-mudra-indigo-700">
+                    Word recognition model
+                    <select
+                      id="recognition-model"
+                      value={recognitionModel}
+                      disabled={modelState.status !== 'online'}
+                      onChange={(event) => changeRecognitionModel(event.target.value)}
+                      className="mt-1 min-h-10 w-full rounded-xl border border-mudra-lavender-300 bg-white px-3 text-sm font-semibold text-mudra-indigo-950 disabled:opacity-60"
+                    >
+                      {recognitionModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}{model.experimental ? ' · experimental' : ''}
+                        </option>
+                      ))}
+                      {recognitionModels.length === 0 && (
+                        <option value="sequence">Main trained sign model</option>
+                      )}
+                    </select>
+                  </label>
+                  {recognitionModel === 'intro_static' && (
+                    <p className="text-[11px] leading-relaxed text-amber-900">
+                      Experimental static-pose model: {selectedRecognitionModel?.live_words ?? 10} of
+                      {' '}{selectedRecognitionModel?.trained_words ?? 32} classes are live-eligible.
+                      HELLO and GOOD are preview-only. It cannot recognize the full introduction.
+                      Use Spell mode for alphabet signs. Switching models drops any in-progress sign.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {inputMode === 'spell' ? (
                 <SpellPanel cameraActive={cameraActive} accuracy={libraryModels.letters}
                             onCommitWord={(word) => setRecognizedTokens((prev) => [...prev, word])} />
@@ -1039,13 +1132,17 @@ export default function CommunicatePage() {
                       : currentDetection.status === 'unsure'
                       ? `Added, unsure · ${currentDetection.confidence}%`
                       : currentDetection.status === 'uncertain'
-                      ? `Uncertain · ${currentDetection.confidence}%`
+                      ? currentDetection.model === 'intro_static'
+                        ? `Uncertain · ${currentDetection.confidence}% frame agreement`
+                        : `Uncertain · ${currentDetection.confidence}%`
                       : currentDetection.status === 'signing'
                       ? 'Signing…'
                       : currentDetection.status === 'no_hands'
                       ? 'No hands in view'
                       : currentDetection.isUnknown
                       ? (currentDetection.source === 'model' ? 'Waiting for a sign' : 'Below 68% match')
+                      : currentDetection.model === 'intro_static'
+                      ? `Experimental · ${currentDetection.confidence}% frame agreement`
                       : `${currentDetection.confidence}% confidence`}
                   </span>
                 </div>
@@ -1098,7 +1195,9 @@ export default function CommunicatePage() {
                   }`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${modelState.status === 'online' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
                     {modelState.status === 'online'
-                      ? `Trained model · ${modelState.info?.num_signs ?? ''} words`
+                      ? recognitionModel === 'intro_static'
+                        ? `Experimental static pose · ${selectedRecognitionModel?.live_words ?? 10}/${selectedRecognitionModel?.trained_words ?? 32} live-eligible classes`
+                        : `Trained model · ${modelState.info?.num_signs ?? ''} words`
                       : modelState.status === 'checking'
                       ? 'Connecting to recognition model...'
                       : 'Offline: rule-based fallback, 8 signs'}

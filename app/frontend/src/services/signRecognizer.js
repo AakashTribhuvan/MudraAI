@@ -35,6 +35,7 @@ class SignRecognizer {
     this.error = null
     this.ws = null
     this.started = false
+    this.model = 'sequence'
     this.onPrediction = null // whole-sign result when a sign ends
     this.onActivity = null // 'signing' when a sign starts, 'ended' when it is classified, 'idle' when it was too short
     this.onProvisional = null // live best guess while signing (display only)
@@ -55,6 +56,15 @@ class SignRecognizer {
     this.status = status
     this.error = error
     this.onStatusChange?.({ status, info: this.info, error })
+  }
+
+  setModel(model) {
+    if (!['sequence', 'intro_static'].includes(model)) {
+      throw new Error(`Unknown recognition model: ${model}`)
+    }
+    if (this.model === model) return
+    this.model = model
+    this.reset()
   }
 
   /** Checks the backend; call again to retry after starting it. */

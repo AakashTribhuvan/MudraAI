@@ -6,12 +6,12 @@
 
 | Field | Value |
 |---|---|
-| Document version | 11 |
+| Document version | 12 |
 | Last updated | 2026-10-20 |
-| Last updated at commit | the commit after `05e4f91`: avatar, teammate models, three modes, v10c/v11a (Section 21) |
+| Last updated at commit | pending commit for the experimental model selector and camera-source controls (Section 21) |
 | Deployed models | words: `app/backend/models/isl_mudra_combined_v11a_bilstm` (324 words + `_BACKGROUND_`; v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
-| Tests | 112 backend passing (`pytest training app/backend/tests`: 74 + 6 sign library + 3 model system + 29 SignLine Emergency; data-dependent tests skip without `data/metadata`) + 15 frontend (`npm test` in `app/frontend`) |
+| Tests | Current check: 21 frontend passing and 3 static-pose tests passing. Full backend tests are blocked by this machine's Torch DLL policy (`WinError 4551`) and missing `tensorboard`; full Ruff checks report existing issues in the upstream files. Changed backend files pass Ruff. |
 | Repository | `https://github.com/Addy-coder786/Mudra` (remote `mudra`); older pushes: `Addy-coder786/ISL_Addy` (remote `origin`) |
 | Overall state | Recognition is accurate on new takes by **signers seen in training**; accuracy for new people is unmeasured (about 67% on unseen recording sessions); **live use on a real laptop webcam is not yet reliable** (Section 16). Audit: `docs/AUDIT_2026-10-13.md` |
 
@@ -409,12 +409,12 @@ available / Coming soon / Error), never colour alone.
 |---|---|---|
 | `GET /` | identity | `project`, `api_version`, `docs` |
 | `GET /health` | liveness | `status`, `model_loaded`, `model`, `num_signs` (excludes `_` classes), `device`, `error`, `custom_words` |
-| `GET /labels` | vocabulary | `count`, `labels[]`: `sign`, `label` (readable), `has_reference`, `test_correct`, `test_clips` (from the model card) |
+| `GET /labels` | vocabulary | `count`, `labels[]`: `sign`, `label` (readable), `has_reference`, `test_correct`, `test_clips` (from the model card); `?model=intro_static` returns all 32 experimental classes with a `live` eligibility flag |
 | `GET /model` | model card minus stats/classes | card fields + `num_signs`, `active_threshold` |
 | `GET /reference/{sign}` | one real training example (also `LETTER_A`-`LETTER_Z`: a still hand shape as 15 identical frames, `kind: "letter"`, hands put in signer-left/right slots by their 3D shape (`library.chirality`), one-handed letters C L O U V always on the right (mirrored if needed); phrases: `kind: "phrase"`) | `sign`, `label`, `fps` (≤15), `width`, `height`, `frames[]`: `hands` [2 × (21×[x,y,z]) or null], `pose` (33×[x,y,z,vis] or null); 404 if none |
 | `POST /predict` | classify one pre-cut clip | request `PredictRequest`: `frames` (8-256) of `{hands:[{landmarks 21×3, handedness?, score}], pose: 33×3|4 or null}`, `width`, `height`, `mirrored`, `top_k` (1-10). Response: `status` (`ok`/`uncertain`/`no_hands`/`no_sign`), `sign`, `label`, `confidence`, `top_k[]`, `hand_rate`, `frames_received`, `threshold`, `model`, `inference_ms`. `no_hands` when < `MUDRA_MIN_HAND_RATE` (0.3) of frames show a hand; uses the model card threshold (0.85) |
-| `GET /models` | selectable word models | `models[]`: `id` (`sequence` = deployed, default; `merged`; `auto` = merged + letters; stream also accepts `intro_static`, `common_word_video`, `isl500_video`), `name`, `default`, `experimental`, `trained_words`, `live_words`, `test_accuracy` + `accuracy_split` + `accuracy_samples` (from the model card), `our_test` (our test-clip comparison, static model) |
-| `GET /labels?model=intro_static` | the static model's 10 live labels | same shape as `/labels`; unknown model → 400 |
+| `GET /models` | selectable word models | `models[]`: `id` (`sequence` = deployed, default; `merged`; `auto` = merged + letters; `intro_static` = experimental 32-class still-pose model with 10 live-eligible classes), `name`, `default`, `experimental`, `trained_words`, `live_words`, `test_accuracy` + `accuracy_split` + `accuracy_samples` (from the model card), `our_test` (our test-clip comparison, static model) |
+| `GET /labels?model=intro_static` | all 32 static-model classes | same shape as `/labels`, plus `live` per class; preview-only classes are not returned by live recognition; unknown model → 400 |
 | `GET /library` | letters and phrases beyond `/labels` | `letters[]` / `phrases[]`: `sign` (`LETTER_A`…, phrase ids), `label`, `has_reference`; `models` (test top-1/top-3/top-5, thresholds) |
 | `POST /letters/predict` | fingerspelling letter from 1-30 frames (probabilities averaged) | request `{frames, width, height, top_k}` (frame format as `/predict`); response `status` (`ok`/`uncertain`/`no_hands`), `letter`, `sign`, `confidence`, `top_k[]` {`letter`, `sign`, `label`, `confidence`}, `frames_used` |
 | `POST /phrases/predict` | whole-phrase guesses for one recorded clip | same request/response as `/predict`, phrase model (no background class) |
@@ -1080,6 +1080,16 @@ that need the model or landmark data skip automatically when those files are mis
 ## 21. Change log (newest first)
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
+
+### 2026-10-20 · pending · experimental pose-model selection and camera controls
+- Added the experimental static-pose recognizer to `GET /models`; its label list now includes all trained
+  classes and marks which 10 are eligible for live use. Communication can select it and reports frame-agreement
+  confidence. Added camera-source selection to Communication, Practice and Teach a sign.
+- Kept the static model experimental and opt-in. No model, threshold or accuracy claim changed. Checks: 21
+  frontend tests and 3 static-pose tests passed; changed backend files pass Ruff. The full backend test run
+  could not collect because Windows blocked Torch's `c10.dll` (`WinError 4551`) and `tensorboard` is absent;
+  full repository Ruff reports existing findings in other upstream files. The API suite did not complete in
+  this local environment, so no API-level effect or accuracy change is claimed.
 
 ### 2026-10-20 · v11a deployed: 17 recorded words, no mix-ups
 - Owner recorded 8 more words (FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME; 93 takes / 17 words).
