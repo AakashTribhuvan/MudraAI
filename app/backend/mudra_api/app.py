@@ -21,6 +21,7 @@ from mudra_api.recordings import RecordingStore, frames_to_sequence, parse_frame
 from mudra_api.references import ReferenceClips
 from mudra_api.schemas import LetterRequest, PredictRequest, PredictResponse
 from mudra_api.settings import Settings
+from mudra_api.speech_api import speech_router
 from mudra_api.auto_mode import AutoRecognizer
 from mudra_api.extra_models import TEAMMATE_TEST_ACCURACY, ExtraModels, MergedFallback, WordSource, evaluation, ours, own_threshold
 from mudra_api.isl500_video import ISL500VideoStreamingRecognizer
@@ -46,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Content-Type", "Authorization", "X-Device-Key", "X-Session-Token"],
+        expose_headers=["X-TTS-Ms"],
     )
 
     recognizer: SignRecognizer | None = None
@@ -373,4 +375,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return require_model().predict(req, settings.min_hand_rate)
 
     app.include_router(emergency_router())  # SignLine Emergency (self-contained, /api/v1/emergency)
+    app.include_router(speech_router(settings, warm_up=True))  # meeting speech: /tts, /asr, /captions (local only)
     return app

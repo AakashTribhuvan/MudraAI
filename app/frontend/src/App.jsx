@@ -33,6 +33,7 @@ import EmergencySessionPage from './pages/emergency/EmergencySessionPage'
 import EmergencyGesturesPage from './pages/emergency/EmergencyGesturesPage'
 import EmergencyGestureDetailPage from './pages/emergency/EmergencyGestureDetailPage'
 import AvatarQAPage from './pages/dev/AvatarQAPage'
+import MeetingPanelPage from './pages/meeting/MeetingPanelPage'
 import EmergencyAboutPage from './pages/emergency/EmergencyAboutPage'
 import { ResponderDashboardPage, ResponderIncidentPage, ResponderLoginPage } from './pages/emergency/ResponderPages'
 
@@ -177,7 +178,24 @@ function useStartup() {
   return { phase, retry: run, skip }
 }
 
+// The meeting panel runs inside Google Meet / Zoom (extension overlay, add-on side panel) or a small pop-out window:
+// no start-up animation, navigation, sign-in or SOS button there.
+const MEETING_SURFACE = /^\/meet-panel(\/|$)/
+
 export default function App() {
+  if (typeof window !== 'undefined' && MEETING_SURFACE.test(window.location.pathname)) {
+    return (
+      <AccessibilityProvider>
+        <BrowserRouter>
+          <Routes><Route path="/meet-panel/*" element={<MeetingPanelPage />} /></Routes>
+        </BrowserRouter>
+      </AccessibilityProvider>
+    )
+  }
+  return <FullApp />
+}
+
+function FullApp() {
   const { phase, retry, skip } = useStartup()
   return (
     <AccessibilityProvider>

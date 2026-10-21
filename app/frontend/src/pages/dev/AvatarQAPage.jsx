@@ -98,7 +98,7 @@ export default function AvatarQAPage() {
     return () => { cancelled = true; if (group) ctx.scene?.remove(group) }
   }, [markers, current, ctx, info])
 
-  useEffect(() => { window.__avatarCtx = ctx }, [ctx]) // dev page only: lets diagnostics inspect the queue
+  useEffect(() => { window.__avatarCtx = ctx; ctx.debugPaused ??= false }, [ctx]) // dev page only: diagnostics; draw every frame
 
   const play = (sign) => {
     setCurrent(sign)

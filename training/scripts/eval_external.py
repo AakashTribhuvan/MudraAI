@@ -3,7 +3,7 @@
 Only clips whose label is in the model's vocabulary are scored; the model still chooses
 among all of its classes, exactly as in the app.
 
-    python training/scripts/eval_external.py --model app/backend/models/isl_mudra_combined_v11a_bilstm \
+    python training/scripts/eval_external.py --model app/backend/models/isl_mudra_combined_v13b_bilstm \
         --manifest data/metadata/manifest_islwords.csv
 """
 

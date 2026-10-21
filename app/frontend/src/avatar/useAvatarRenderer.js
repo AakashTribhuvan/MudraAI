@@ -186,6 +186,7 @@ export function useAvatarRenderer({
       camera.position.set(Math.sin(yaw) * dist, f.centerY, f.centerZ + Math.cos(yaw) * dist)
       camera.lookAt(0, f.centerY, f.centerZ)
       camera.updateProjectionMatrix()
+      ctx.needsRender = true
     }
     ctx.frameAvatar = frameAvatar
 
@@ -218,6 +219,7 @@ export function useAvatarRenderer({
           ctx.camera.aspect = width / height
           ctx.camera.updateProjectionMatrix()
           ctx.renderer.setSize(width, height)
+          ctx.needsRender = true
           frameAvatar()
         }
       }
@@ -334,6 +336,7 @@ export function useAvatarRenderer({
 
           // The animated skeleton: the shown model itself, or the hidden Y Bot reference
           ctx.avatar = reference || root
+          ctx.needsRender = true
           ctx.retarget = null
           if (reference) {
             reference.updateMatrixWorld(true)
@@ -481,6 +484,10 @@ export function useAvatarRenderer({
             boneTransitionsRef.current.clear() // the next step starts from the clip's last pose
             ctx.animations.shift()
           }
+        } else if (Array.isArray(currentFrame) && currentFrame[0] === 'mark') {
+          // a queued phrase starts or ends here (append mode): the callback gets the time of this frame
+          ctx.animations.shift()
+          currentFrame[1].fn?.(performance.now())
         } else if (Array.isArray(currentFrame) && currentFrame.length > 0) {
           if (currentFrame[0] === 'add-text') {
             if (onTextUpdateRef.current && typeof currentFrame[1] === 'string') {
@@ -551,7 +558,14 @@ export function useAvatarRenderer({
         }
       }
 
-      if (renderer && scene && camera) {
+      // Idle (nothing queued or playing): no new frame is drawn, so a still avatar costs no GPU time next to the
+      // camera's hand tracking on the same GPU (measured on the Communicate page, 2026-10-21). Two more frames are
+      // drawn after the last movement; a resize, new framing or a loaded model asks for one (needsRender); the QA
+      // page draws every frame (it moves bones directly while paused).
+      const busy = ctx.animations.length > 0 || Boolean(ctx.clip) || Boolean(ctx.blend) || ctx.flag
+      ctx.idleFrames = busy ? 0 : (ctx.idleFrames || 0) + 1
+      if (renderer && scene && camera && (busy || ctx.needsRender || ctx.debugPaused !== undefined || ctx.idleFrames <= 2)) {
+        ctx.needsRender = false
         applyRetarget()
         renderer.render(scene, camera)
       }
@@ -609,10 +623,29 @@ export function useAvatarRenderer({
    * Triggers ISL gesture sequence for a word, phrase, or sentence
    */
   const sequenceIdRef = useRef(0)
-  const executeSignSequence = useCallback(async (inputText) => {
+  const appendChainRef = useRef(Promise.resolve())
+  const appendGenerationRef = useRef(0)
+  /**
+   * Sign a text. By default it replaces what is queued (the sign playing now finishes first).
+   * options.append (live captions): the text is queued after what is already queued, in call order, between two
+   * markers: onStart(time of the first frame) and onEnd(time); cancelPhrase(id) removes it while it is still waiting.
+   * Returns the phrase id (append) once it is queued, or null when it was not queued.
+   */
+  const executeSignSequence = useCallback((inputText, options = {}) => {
+    if (!options.append) return buildSequence(inputText, options)
+    const generation = appendGenerationRef.current
+    const run = appendChainRef.current.then(() => (generation === appendGenerationRef.current ? buildSequence(inputText, options) : null))
+    appendChainRef.current = run.catch(() => null)
+    return run
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const buildSequence = async (inputText, options = {}) => {
     const ctx = contextRef.current
-    if (!ctx.avatar || !isMountedRef.current) return
-    const sequenceId = ++sequenceIdRef.current
+    if (!ctx.avatar || !isMountedRef.current) return null
+    const append = Boolean(options.append)
+    const sequenceId = append ? sequenceIdRef.current : ++sequenceIdRef.current
+    const generation = appendGenerationRef.current
 
     // Words that have a recorded sign (the trained vocabulary's /reference clips): longest match first,
     // so "thank you" plays THANK_YOU and "good morning" GOOD_MORNING
@@ -673,14 +706,22 @@ export function useAvatarRenderer({
         console.error('3D Avatar: could not use the letter photo for', ch, err) // falls back to the hand-made letter
       }
     }))
-    if (sequenceId !== sequenceIdRef.current || !isMountedRef.current) return // a newer request replaced this one
+    if (sequenceId !== sequenceIdRef.current || !isMountedRef.current) return null // a newer request replaced this one
+    if (append && generation !== appendGenerationRef.current) return null // the queue was cleared meanwhile
 
     // The item playing now (a sign, a glide, a hand-made pose) finishes; the rest of the old queue is replaced.
     // This block is synchronous, so the render loop cannot run while the new queue is built.
+    // Append mode keeps the whole queue; a trailing glide to rest that has not started is dropped, so consecutive
+    // phrases flow into each other (each clip glides in from the pose before it).
+    const existing = ctx.animations
+    if (append) {
+      const tail = existing.length - 1
+      if (tail > 0 && Array.isArray(existing[tail]) && existing[tail][0] === 'blend-rest') existing.splice(tail, 1)
+    }
     const head = ctx.animations[0]
-    const keepHead = Boolean(head) && (Boolean(ctx.clip) || Boolean(ctx.blend) ||
+    const keepHead = !append && Boolean(head) && (Boolean(ctx.clip) || Boolean(ctx.blend) ||
       (Array.isArray(head) && head.length > 0 && Array.isArray(head[0])))
-    if (!keepHead) {
+    if (!keepHead && !append) {
       ctx.clip = null
       ctx.blend = null
       boneTransitionsRef.current.clear()
@@ -688,6 +729,8 @@ export function useAvatarRenderer({
     const queue = []
     ctx.animations = queue
     const fallbacks = { letters: [], words: [], spelled: [] }
+    const phraseId = append ? `p${++phraseCounterRef.current}` : null
+    if (append) queue.push(['mark', { id: phraseId, kind: 'start', fn: options.onStart }])
 
     const tokens = inputText.match(/([a-zA-Z]+|[^a-zA-Z]+)/g) || []
     let wordIndex = -1
@@ -736,14 +779,14 @@ export function useAvatarRenderer({
           wordIndex += rec.length - 1
           ctx.animations.push(['add-text', text])
           ctx.animations.push(['clip', clip.frames, clip.fps])
-          ctx.animations.push(['blend-rest'])
+          if (!append) ctx.animations.push(['blend-rest']) // live captions: signs flow into each other
           continue
         }
         const made = synth.get(token.toUpperCase())
         if (made) {
           ctx.animations.push(['add-text', token])
           ctx.animations.push(['clip', made.frames, made.fps, LETTER_FOLLOW])
-          ctx.animations.push(['blend-rest'])
+          if (!append) ctx.animations.push(['blend-rest'])
           continue
         }
         const lowerToken = token.toLowerCase()
@@ -809,7 +852,7 @@ export function useAvatarRenderer({
               ctx.animations.push([])
             }
           }
-          if (usedLetterClip) ctx.animations.push(['blend-rest'])
+          if (usedLetterClip && !append) ctx.animations.push(['blend-rest'])
         }
       } else {
         for (const char of token) {
@@ -822,7 +865,12 @@ export function useAvatarRenderer({
     // back to the neutral pose after the last sign (a recorded or letter sign already glides there)
     const last = queue[queue.length - 1]
     if (!(Array.isArray(last) && last[0] === 'blend-rest')) queue.push(['blend-rest']) // every bone, smoothly
-    ctx.animations = keepHead ? [head, ...queue] : queue
+    if (append) {
+      queue.push(['mark', { id: phraseId, kind: 'end', fn: options.onEnd }])
+      ctx.animations = existing.concat(queue)
+    } else {
+      ctx.animations = keepHead ? [head, ...queue] : queue
+    }
 
     if (!ctx.pending) {
       ctx.pending = true
@@ -832,7 +880,40 @@ export function useAvatarRenderer({
       fallbackLetters: [...new Set(fallbacks.letters)], fallbackWords: [...new Set(fallbacks.words)],
       spelledWords: [...new Set(fallbacks.spelled)],
       letterDataMissing: spelled.size > 0 && letters.size === 0,
+      phraseId,
     })
+    return phraseId
+  }
+  const phraseCounterRef = useRef(0)
+
+  /** Removes a queued phrase that has not started yet (append mode). Returns true when it was removed. */
+  const cancelPhrase = useCallback((id) => {
+    const q = contextRef.current.animations
+    const isMark = (item, kind) => Array.isArray(item) && item[0] === 'mark' && item[1].id === id && item[1].kind === kind
+    const start = q.findIndex((item) => isMark(item, 'start'))
+    if (start < 0) return false // already started (or finished)
+    const end = q.findIndex((item) => isMark(item, 'end'))
+    q.splice(start, (end < 0 ? q.length : end + 1) - start)
+    return true
+  }, [])
+
+  /** Number of append-mode phrases queued and not started yet. */
+  const pendingPhrases = useCallback(() => contextRef.current.animations
+    .filter((item) => Array.isArray(item) && item[0] === 'mark' && item[1].kind === 'start').length, [])
+
+  /** Stop: drops everything queued (including phrases still being prepared) and glides back to rest. */
+  const clearQueue = useCallback(() => {
+    appendGenerationRef.current++
+    sequenceIdRef.current++
+    const ctx = contextRef.current
+    if (ctx.avatar && isMountedRef.current) {
+      ctx.clip = null
+      ctx.blend = null
+      boneTransitionsRef.current.clear()
+      ctx.animations = [['blend-rest']]
+    } else {
+      ctx.animations = []
+    }
   }, [])
 
   const resetToDefaultPose = useCallback(() => {
@@ -847,6 +928,9 @@ export function useAvatarRenderer({
 
   return {
     executeSignSequence,
+    cancelPhrase,
+    pendingPhrases,
+    clearQueue,
     resetToDefaultPose,
     context: contextRef.current
   }

@@ -92,7 +92,7 @@ export default function RecordPage() {
     }
   }, [signer])
 
-  useEffect(() => () => handTracker.stopCamera(), [])
+  useEffect(() => { handTracker.preload(); return () => handTracker.stopCamera() }, [])
 
   const handleResults = useCallback((results) => {
     const canvas = canvasRef.current

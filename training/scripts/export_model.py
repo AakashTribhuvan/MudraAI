@@ -9,7 +9,7 @@ confidence (never below ``--min-threshold``) at which predictions kept on valida
 not, which is why the floor exists.
 
     python training/scripts/export_model.py --run experiments/runs/mudra_words_<time> --data-source combined \
-        --name isl_mudra_combined_v6_bilstm
+        --name isl_mudra_combined_v13b_bilstm
 """
 
 from __future__ import annotations

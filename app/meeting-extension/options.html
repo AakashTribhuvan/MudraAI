@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MUDRA extension options</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; max-width: 560px; margin: 24px auto; padding: 0 16px; color: #1d1b16; }
+    label { display: block; margin: 12px 0 4px; font-weight: 700; }
+    input { width: 100%; padding: 6px; font: inherit; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 6px 14px; font: inherit; font-weight: 700; }
+    .hint { color: #555; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>MUDRA for Meet and Zoom</h1>
+  <p class="hint">The extension shows the MUDRA panel in the meeting and sends the meeting tab's audio to the local MUDRA
+    server for speech recognition on this computer. Nothing is recorded or sent anywhere else.</p>
+  <label for="web">MUDRA web app</label>
+  <input id="web" placeholder="http://localhost:3000">
+  <label for="api">MUDRA server (speech recognition)</label>
+  <input id="api" placeholder="http://127.0.0.1:8010">
+  <button id="save">Save</button> <span id="saved" class="hint"></span>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
