@@ -10,6 +10,7 @@ pydantic==2.13.5
 # SignLine Emergency (database + migrations)
 SQLAlchemy==2.1.4
 alembic==1.20.0
+cryptography==50.0.2
 
 # Deep learning
 torch==2.11.0+cu128

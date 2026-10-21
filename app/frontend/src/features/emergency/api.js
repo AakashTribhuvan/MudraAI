@@ -109,6 +109,43 @@ export const emergencyApi = {
   updateGesture: (id, body) => request(`/gestures/${id}`, { method: 'PATCH', body, headers: device() }),
   deleteGesture: (id) => request(`/gestures/${id}`, { method: 'DELETE', headers: device() }),
   testGesture: (id) => request(`/gestures/${id}/test`, { method: 'POST', headers: device() }),
+  gestureReport: (id, body = {}) => request(`/gestures/${id}/report`, { method: 'POST', body, headers: device() }),
+  contacts: (region) => request(`/contacts${region ? `?region=${encodeURIComponent(region)}` : ''}`),
+  deleteGestureVideo: (id) => request(`/gestures/${id}/video`, { method: 'DELETE', headers: device() }),
+  /** Upload a recorded demonstration (only with the user's recording consent). */
+  async uploadGestureVideo(id, blob, durationS) {
+    const form = new FormData()
+    const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
+    form.append('file', blob, `gesture.${ext}`)
+    form.append('duration_s', String(durationS))
+    form.append('recording_consent', 'true')
+    let res
+    try {
+      res = await fetch(`${BASE}/gestures/${id}/video`, { method: 'PUT', headers: device(), body: form })
+    } catch {
+      throw new ApiError(0, 'The video could not be uploaded: cannot reach the SignLine server. The gesture is saved without it.')
+    }
+    const data = await res.json().catch(() => null)
+    if (!res.ok) throw new ApiError(res.status, data?.detail || `Upload failed (${res.status})`)
+    return data
+  },
+  /** The gesture's video as a Blob (the device key is sent as a header, so it cannot be a plain URL). */
+  async gestureVideo(id) {
+    let res
+    try {
+      res = await fetch(`${BASE}/gestures/${id}/video`, { headers: device() })
+    } catch {
+      throw new ApiError(0, 'The video could not be loaded: cannot reach the SignLine server.')
+    }
+    if (!res.ok) throw new ApiError(res.status, res.status === 404 ? 'No video saved for this gesture.' : `Video unavailable (${res.status})`)
+    return res.blob()
+  },
+  /** Prepare a report from a gesture for the responder desk (up to "ready to share"; nothing is shared yet). */
+  async requestAssistance(id, body) {
+    const data = await request(`/gestures/${id}/request-assistance`, { method: 'POST', body, headers: device() })
+    rememberSession(data.session.id, data.access_token)
+    return data
+  },
   preferences: () => request('/preferences', { headers: device() }),
   savePreferences: (body) => request('/preferences', { method: 'PUT', body, headers: device() }),
 
@@ -123,6 +160,17 @@ export const emergencyApi = {
   incident: (id) => request(`/responder/incidents/${id}`, { headers: responderHeaders() }),
   acknowledge: (id) => request(`/responder/incidents/${id}/acknowledge`, { method: 'POST', headers: responderHeaders() }),
   resolve: (id) => request(`/responder/incidents/${id}/resolve`, { method: 'POST', headers: responderHeaders() }),
+  /** The video the user shared with a delivered report (responders only), as a Blob. */
+  async incidentVideo(id) {
+    let res
+    try {
+      res = await fetch(`${BASE}/responder/incidents/${id}/video`, { headers: responderHeaders() })
+    } catch {
+      throw new ApiError(0, 'The video could not be loaded: cannot reach the SignLine server.')
+    }
+    if (!res.ok) throw new ApiError(res.status, res.status === 404 ? 'No video was shared with this report.' : `Video unavailable (${res.status})`)
+    return res.blob()
+  },
   addNote: (id, text) => request(`/responder/incidents/${id}/notes`, { method: 'POST', body: { text }, headers: responderHeaders() }),
   analytics: () => request('/responder/analytics', { headers: responderHeaders() }),
 }

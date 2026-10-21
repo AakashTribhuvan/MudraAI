@@ -44,6 +44,24 @@ const LIMITS = {
   rollMinBend: 15 * D, // below this bend the finger's plane is noise: no turn
 }
 const SMOOTH = [1, 4, 6, 4, 1]
+const UNWRAP_MARGIN = (30 * Math.PI) / 180
+const BEND_UNSURE = 0.1 // |upper x lower| below this: the elbow plane is noise
+const BEND_SURE = 0.5 // above this: trusted fully
+const MAX_DEG_PER_S = { arm: 900, finger: 700 } // fastest joint turn kept (human wrist / finger flicks)
+// hand segments measured on the avatar and in a photo (MediaPipe landmark pairs), for the photo's true scale
+const HAND_SEGMENTS = {
+  palm: [0, 9], width: [5, 17], index1: [5, 6], middle1: [9, 10], ring1: [13, 14], pinky1: [17, 18],
+  index2: [6, 7], middle2: [10, 11], ring2: [14, 15], pinky2: [18, 19],
+}
+const HAND_SEGMENT_BONES = {
+  palm: ['Hand', 'Middle1'], width: ['Index1', 'Pinky1'], index1: ['Index1', 'Index2'], middle1: ['Middle1', 'Middle2'],
+  ring1: ['Ring1', 'Ring2'], pinky1: ['Pinky1', 'Pinky2'], index2: ['Index2', 'Index3'], middle2: ['Middle2', 'Middle3'],
+  ring2: ['Ring2', 'Ring3'], pinky2: ['Pinky2', 'Pinky3'],
+}
+// landmark index -> bone, for the hand-to-hand contact of two-handed letters
+const LANDMARK_BONE = ['Hand', 'Thumb1', 'Thumb2', 'Thumb3', 'Thumb4', 'Index1', 'Index2', 'Index3', 'Index4',
+  'Middle1', 'Middle2', 'Middle3', 'Middle4', 'Ring1', 'Ring2', 'Ring3', 'Ring4', 'Pinky1', 'Pinky2', 'Pinky3', 'Pinky4']
+const CONTACT_MAX = 1.0 // photo hands closer than this many hand sizes are touching / interacting
 
 const v3 = () => new THREE.Vector3()
 const clamp = (x, [lo, hi]) => Math.min(hi, Math.max(lo, x))
@@ -79,10 +97,17 @@ export function buildRig(root, find) {
     const elbowHinge = v3().crossVectors(foreDir, FORWARD).normalize() // +angle bends the forearm forward
     const foreQ = rest(fore)
     const middle = bone(`${side}HandMiddle1`)
+    const handSeg = {}
+    for (const [name, [a, b]] of Object.entries(HAND_SEGMENT_BONES)) {
+      const ba = a === 'Hand' ? hand : bone(`${side}Hand${a}`)
+      const bb = bone(`${side}Hand${b}`)
+      if (ba && bb) handSeg[name] = worldPos(ba).distanceTo(worldPos(bb))
+    }
     const entry = {
       // rest-pose sizes in world units, for made-up arm poses (letters)
       geo: { shoulder: worldPos(arm), upper: worldPos(fore).distanceTo(worldPos(arm)),
-             fore: worldPos(hand).distanceTo(worldPos(fore)), hand: middle ? worldPos(middle).distanceTo(worldPos(hand)) : 0 },
+             fore: worldPos(hand).distanceTo(worldPos(fore)), hand: middle ? worldPos(middle).distanceTo(worldPos(hand)) : 0,
+             handSeg },
       shoulder: { bone: shoulder, restQ: rest(shoulder) },
       arm: { bone: arm, restQ: rest(arm), restDir: armDir, restHinge: elbowHinge },
       fore: { bone: fore, restQ: foreQ, restLocal: fore.quaternion.clone(), dirLocal: local(foreQ, foreDir).normalize(),
@@ -201,9 +226,8 @@ export function letterClip(rig, clip) {
   // photo -> avatar axes (image x = signer-left = avatar +x, image y down, z away from the camera)
   const A = (q) => new THREE.Vector3(q[0], -q[1], -(q[2] || 0))
   const hands = Object.fromEntries(sides.map((side) => [side, photo[HAND_SLOT[side]].map(A)]))
-  const size = sides.reduce((sum, side) => sum + hands[side][9].distanceTo(hands[side][0]), 0) / sides.length
-  if (size < 1e-6) return null
-  const k = rig[sides[0]].geo.hand / size
+  const k = photoScale(rig, sides, hands)
+  if (!k) return null
   const L = rig.Left.geo
   const Rg = rig.Right.geo
   const reach = L.upper + L.fore
@@ -216,6 +240,84 @@ export function letterClip(rig, clip) {
     const side = sides[0]
     wrists[side] = chest.clone().setX(rig[side].geo.shoulder.x * 0.6).add(v3().set(0, 0.08 * reach, 0))
   }
+  const build = () => buildLetterFrame(rig, sides, hands, wrists, k)
+  let frame = build()
+  // two-handed letters whose hands touch in the photo: move the wrists until the same points touch on the avatar
+  const contact = sides.length === 2 ? photoContact(hands, k, rig.Left.geo.hand) : null
+  if (contact) {
+    for (let it = 0; it < 3; it++) {
+      const gap = avatarGap(rig, frame, contact)
+      if (!gap) break
+      const delta = contact.vec.clone().sub(gap) // wanted (photo) gap minus the avatar's gap, avatar units
+      if (delta.length() < 0.05 * rig.Left.geo.hand) break
+      wrists.Right.add(delta.clone().multiplyScalar(0.5))
+      wrists.Left.sub(delta.clone().multiplyScalar(0.5))
+      frame = build()
+    }
+  }
+  return { ...clip, width: 1, height: 1, frames: clip.frames.map(() => frame), contact: contact ? { pair: contact.pair, photo: contact.dist } : null }
+}
+
+/** Avatar units per photo unit: the 25th percentile over many hand segments (a tilted palm or finger looks short in a photo, never long). */
+function photoScale(rig, sides, hands) {
+  const ratios = []
+  for (const side of sides) {
+    const seg = rig[side].geo.handSeg || {}
+    for (const [name, [a, b]] of Object.entries(HAND_SEGMENTS)) {
+      const photoLen = hands[side][a].distanceTo(hands[side][b])
+      if (seg[name] && photoLen > 1e-6) ratios.push(seg[name] / photoLen)
+    }
+  }
+  if (!ratios.length) {
+    const size = sides.reduce((sum, side) => sum + hands[side][9].distanceTo(hands[side][0]), 0) / sides.length
+    return size > 1e-6 ? rig[sides[0]].geo.hand / size : null
+  }
+  ratios.sort((x, y) => x - y)
+  return ratios[Math.floor(ratios.length * 0.25)]
+}
+
+/** The closest landmark pair between the two photo hands, if they touch: {pair, vec (Left -> Right, avatar units), dist (hand sizes)}. */
+function photoContact(hands, k, handLen) {
+  let best = null
+  for (let a = 0; a < 21; a++) {
+    for (let b = 0; b < 21; b++) {
+      const d = hands.Right[a].distanceTo(hands.Left[b])
+      if (!best || d < best.d) best = { a, b, d }
+    }
+  }
+  const dist = (best.d * k) / handLen
+  if (dist > CONTACT_MAX) return null
+  return { pair: [best.b, best.a], vec: hands.Right[best.a].clone().sub(hands.Left[best.b]).multiplyScalar(k), dist }
+}
+
+/** Solve one letter frame on the rig's skeleton and measure the contact pair (the skeleton's pose is restored). */
+function avatarGap(rig, frame, contact) {
+  const solved = solveClip(rig, { frames: [frame], width: 1, height: 1 })
+  if (!solved) return null
+  const bones = rig.restPose.map((r) => r.bone)
+  const top = topOf(bones[0])
+  const saved = bones.map((b) => b.quaternion.clone())
+  for (const [b, q] of solved[0]) b.quaternion.copy(q)
+  top.updateMatrixWorld(true)
+  const at = (side, i) => {
+    const name = LANDMARK_BONE[i] === 'Hand' ? `${side}Hand` : `${side}Hand${LANDMARK_BONE[i]}`
+    const b = top.getObjectByName(`mixamorig${name}`) || top.getObjectByName(`mixamorig:${name}`)
+    return b ? b.getWorldPosition(v3()) : null
+  }
+  const l = at('Left', contact.pair[0])
+  const r = at('Right', contact.pair[1])
+  bones.forEach((b, i) => b.quaternion.copy(saved[i]))
+  top.updateMatrixWorld(true)
+  return l && r ? r.sub(l) : null
+}
+
+function topOf(o) {
+  let x = o
+  while (x.parent) x = x.parent
+  return x
+}
+
+function buildLetterFrame(rig, sides, hands, wrists, k) {
   const toMp = (v) => [v.x, -v.y, -v.z] // back to MediaPipe world axes, as recorded clips have them
   const pose = Array.from({ length: 33 }, () => [0, 0, 0])
   const worldHands = [null, null]
@@ -237,8 +339,7 @@ export function letterClip(rig, clip) {
     pose[ids.wrist] = toMp(wrist)
     worldHands[HAND_SLOT[side]] = hand.map((q) => toMp(wrist.clone().add(q.clone().sub(hand[0]).multiplyScalar(k))))
   }
-  const frame = { pose: null, hands: [null, null], world: { pose, hands: worldHands } }
-  return { ...clip, width: 1, height: 1, frames: clip.frames.map(() => frame) }
+  return { pose: null, hands: [null, null], world: { pose, hands: worldHands } }
 }
 
 /**
@@ -256,6 +357,8 @@ function bestElbow(g, target, handDir, outward) {
     const up = ik.elbow.y - (g.shoulder.y - 0.55 * g.upper)
     if (up > 0) cost += 2.5 * up / g.upper // raised elbows look forced
     if ((ik.elbow.x - g.shoulder.x) * outward < -0.7 * g.upper) cost += 1 // elbow far across the body
+    const wide = (ik.elbow.x - g.shoulder.x) * outward - 0.3 * g.upper
+    if (wide > 0) cost += 2 * wide / g.upper // signers keep the elbows near the body, not flared out
     if (!best || cost < best.cost) best = { ...ik, cost }
   }
   return best
@@ -301,16 +404,45 @@ export function trimRest(clip, pad = 2) {
 export { POSE, HAND_SLOT, FINGERS }
 
 /** Centred smoothing of one landmark array across frames (null frames are skipped). */
+/**
+ * ``angle`` (radians, in (-pi, pi]) or the same angle one turn up / down, whichever is closest to ``prev``, but
+ * never further than UNWRAP_MARGIN past half a turn: a twist crossing +-180 deg stays continuous for a moment
+ * instead of flipping sign, without drifting into angles the joint limits would then clamp into a wrong pose.
+ */
+export function unwrapAngle(prev, angle) {
+  if (prev === undefined || !Number.isFinite(prev)) return angle
+  const bound = Math.PI + UNWRAP_MARGIN
+  return [angle, angle + 2 * Math.PI, angle - 2 * Math.PI]
+    .filter((a) => Math.abs(a) <= bound)
+    .reduce((best, a) => (Math.abs(a - prev) < Math.abs(best - prev) ? a : best), angle)
+}
+
+export function despike(tracks) {
+  // a 3-frame median per coordinate: one mis-detected frame (a hand jumping away and back) is replaced, while
+  // steady motion passes unchanged (measured: 1-2% of wrist / forearm steps above 720 deg/s came from such frames)
+  return tracks.map((own, i) => {
+    const a = tracks[i - 1]
+    const b = tracks[i + 1]
+    if (!own || !a || !b) return own
+    return own.map((p, j) => p.map((v, c) => {
+      const x = a[j]?.[c] ?? v
+      const y = b[j]?.[c] ?? v
+      return Math.max(Math.min(x, y), Math.min(Math.max(x, y), v))
+    }))
+  })
+}
+
 function smoothTrack(frames, get) {
   const out = frames.map(() => null)
   const r = (SMOOTH.length - 1) / 2
+  const tracks = despike(frames.map((f) => get(f) || null))
   for (let i = 0; i < frames.length; i++) {
-    const own = get(frames[i])
+    const own = tracks[i]
     if (!own) continue
     const acc = own.map(() => [0, 0, 0])
     let wsum = 0
     for (let k = -r; k <= r; k++) {
-      const pts = frames[i + k] && get(frames[i + k])
+      const pts = tracks[i + k]
       if (!pts) continue
       const w = SMOOTH[k + r]
       wsum += w
@@ -352,6 +484,8 @@ export function solveClip(rig, clip) {
   const out = []
   const last = new Map()
   const lastBend = {}
+  const prev = new Map() // last angle per joint: each new angle is unwrapped next to it (no 360 deg flips)
+  const cont = (key, angle) => { const a = unwrapAngle(prev.get(key), angle); prev.set(key, a); return a }
   let any = false
   for (let fi = 0; fi < clip.frames.length; fi++) {
     const locals = new Map()
@@ -370,9 +504,15 @@ export function solveClip(rig, clip) {
       any = true
 
       // upper arm: aim at the elbow, roll so the elbow hinge matches the signer's arm plane
+      // elbow plane: ill-defined when the arm is nearly straight or fully folded (|bend| -> 0), where it can turn
+      // 100+ deg in one frame (measured: YOU frame 17); blend it with the last plane by how well it is defined
       let bend = v3().crossVectors(upper, lower)
-      if (bend.lengthSq() < 0.02) bend = lastBend[side] || null // arm nearly straight: keep the last plane
-      else lastBend[side] = bend.normalize().clone()
+      const sure = Math.min(1, Math.max(0, (bend.length() - BEND_UNSURE) / (BEND_SURE - BEND_UNSURE)))
+      const before = lastBend[side]
+      if (bend.lengthSq() > 1e-10) bend.normalize()
+      if (before && sure < 1) bend = sure > 0 ? before.clone().lerp(bend, sure).normalize() : before.clone()
+      else if (!before && sure === 0) bend = null
+      if (bend) lastBend[side] = bend.clone()
       const armW = aimWithRoll(s.arm.restQ, s.arm.restDir, s.arm.restHinge, upper, bend)
       locals.set(s.arm.bone, inv(s.shoulder.restQ).multiply(armW))
 
@@ -393,12 +533,12 @@ export function solveClip(rig, clip) {
           const target = aimWithRoll(s.hand.restQ, s.hand.restDir, s.hand.restNormal, dir.normalize(), normal.normalize())
           const rel = inv(foreW.clone().multiply(s.hand.restLocal)).multiply(target)
           const { twist } = swingTwist(rel, s.hand.dirLocal)
-          const share = signedTwist(twist, s.hand.dirLocal) * LIMITS.forearmTwistShare
+          const share = cont(`${side}:twist`, signedTwist(twist, s.hand.dirLocal)) * LIMITS.forearmTwistShare
           foreLocal = foreLocal.multiply(new THREE.Quaternion().setFromAxisAngle(s.fore.dirLocal, share))
           foreW = armW.clone().multiply(foreLocal)
           const rel2 = inv(foreW.clone().multiply(s.hand.restLocal)).multiply(target)
           const parts = swingTwist(rel2, s.hand.dirLocal)
-          const tw = clamp(signedTwist(parts.twist, s.hand.dirLocal), [-LIMITS.wristTwist, LIMITS.wristTwist])
+          const tw = clamp(cont(`${side}:wrist`, signedTwist(parts.twist, s.hand.dirLocal)), [-LIMITS.wristTwist, LIMITS.wristTwist])
           const limited = limitAngle(parts.swing, LIMITS.wristSwing).multiply(new THREE.Quaternion().setFromAxisAngle(s.hand.dirLocal, tw))
           const handLocal = s.hand.restLocal.clone().multiply(limited)
           handW = foreW.clone().multiply(handLocal)
@@ -414,11 +554,11 @@ export function solveClip(rig, clip) {
             if (seg.lengthSq() > 1e-10) {
               const t = local(frame, seg.normalize())
               if (f.kind === 'pip' || f.kind === 'dip') {
-                const angle = clamp(hingeAngle(f.dirLocal, f.hingeLocal, t), LIMITS[f.kind])
+                const angle = clamp(cont(f.bone.uuid, hingeAngle(f.dirLocal, f.hingeLocal, t)), LIMITS[f.kind])
                 S.setFromAxisAngle(f.hingeLocal, angle)
               } else if (f.kind === 'knuckle') {
                 const curl = v3().crossVectors(f.hingeLocal, f.dirLocal)
-                const flex = clamp(Math.atan2(t.dot(curl), t.dot(f.dirLocal)), LIMITS.knuckleFlex)
+                const flex = clamp(cont(f.bone.uuid, Math.atan2(t.dot(curl), t.dot(f.dirLocal))), LIMITS.knuckleFlex)
                 const spread = clamp(Math.asin(Math.max(-1, Math.min(1, t.dot(f.hingeLocal)))), [-LIMITS.knuckleSpread, LIMITS.knuckleSpread])
                 const aimed = f.dirLocal.clone().multiplyScalar(Math.cos(flex)).add(curl.multiplyScalar(Math.sin(flex)))
                   .multiplyScalar(Math.cos(spread)).add(f.hingeLocal.clone().multiplyScalar(Math.sin(spread))).normalize()
@@ -441,5 +581,27 @@ export function solveClip(rig, clip) {
     for (const [b, q] of locals) last.set(b, q)
     out.push(locals)
   }
-  return any ? out : null
+  return any ? rateLimit(out, clip.fps || 15) : null
+}
+
+/**
+ * No bone turns faster than a person can move it: per frame, each local rotation goes at most MAX_DEG_PER_S / fps
+ * towards the solved one. Removes the remaining one-frame flips (hidden fingers flickering between curled and
+ * straight in the landmarks, arm planes near straight), which then glide over a few frames instead of snapping.
+ */
+function rateLimit(frames, fps) {
+  const last = new Map()
+  for (const locals of frames) {
+    for (const [bone, q] of locals) {
+      const p = last.get(bone)
+      if (p) {
+        const finger = /Hand(Thumb|Index|Middle|Ring|Pinky)/.test(bone.name)
+        const maxRad = ((finger ? MAX_DEG_PER_S.finger : MAX_DEG_PER_S.arm) * D) / fps
+        const angle = 2 * Math.acos(Math.min(1, Math.abs(p.dot(q))))
+        if (angle > maxRad) q.copy(p.clone().slerp(q, maxRad / angle))
+      }
+      last.set(bone, q)
+    }
+  }
+  return frames
 }

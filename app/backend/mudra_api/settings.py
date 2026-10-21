@@ -29,7 +29,7 @@ def _optional_float(name: str) -> float | None:
 @dataclass
 class Settings:
     model_dir: Path = field(
-        default_factory=lambda: Path(os.getenv("MUDRA_MODEL_DIR", BACKEND_DIR / "models" / "isl_mudra_combined_v11a_bilstm"))
+        default_factory=lambda: Path(os.getenv("MUDRA_MODEL_DIR", BACKEND_DIR / "models" / "isl_mudra_combined_v12c_bilstm"))
     )
     device: str = field(default_factory=lambda: os.getenv("MUDRA_DEVICE", "cpu"))
     cors_origins: list[str] = field(default_factory=_origins)

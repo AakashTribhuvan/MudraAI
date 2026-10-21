@@ -21,11 +21,23 @@ function fetchClip(sign) {
 }
 const LETTER_FOLLOW = 0.12 // letters glide into their hand shape (about 0.3 s), recorded words follow closely
 const CLIP_FOLLOW = 0.55 // (both per 1/60 s, so the glide takes the same time at any frame rate)
+// Glides into a sign and back to rest take longer when the joints travel further (deg -> ms), so a 120 deg
+// forearm change between two words is not covered in a few frames (measured snaps of 60-120 deg, 2026-10-21)
+const GLIDE_MS_PER_DEG = 2.4
+const GLIDE_MIN_MS = 160
+const GLIDE_MAX_MS = 620
+const glideMs = (deg) => Math.min(GLIDE_MAX_MS, Math.max(GLIDE_MIN_MS, GLIDE_MIN_MS + deg * GLIDE_MS_PER_DEG))
+const easeInOut = (a) => (a < 0.5 ? 2 * a * a : 1 - Math.pow(-2 * a + 2, 2) / 2)
+const quatDeg = (a, b) => THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(a.dot(b)))))
+export const glideDuration = glideMs
 
 const WORD_ALIASES = { THANKS: 'THANK_YOU', THANKYOU: 'THANK_YOU', HI: 'HELLO', HOME: 'HOUSE' }
 // hand-made word animations that do not show the sign (checked frame by frame on Y Bot): spelled instead
 // until the word is recorded. NAMASTE is built from landmarks (synthSigns.js), HOME uses the HOUSE recording.
-const HANDMADE_OFF = new Set(['Water', 'Person', 'Namaste', 'Home'])
+// 2026-10-21: NO, YES, GOODBYE and HELP were also checked frame by frame on Y Bot: their joint angles were written for
+// another skeleton orientation (arms swing out sideways, hands turn backwards), so all hand-made words are off;
+// such words are spelled until recorded (HELP has the owner's recording, used through /reference).
+const HANDMADE_OFF = new Set(['Water', 'Person', 'Namaste', 'Home', 'No', 'Yes', 'Goodbye', 'Bye', 'Help'])
 const MAX_PHRASE_WORDS = 4
 
 /**
@@ -47,7 +59,8 @@ export function useAvatarRenderer({
   onTextUpdate,
   onLoadingChange,
   onError,
-  onWarning // non-fatal: e.g. the model has no Mixamo skeleton, so it cannot sign
+  onWarning, // non-fatal: e.g. the model has no Mixamo skeleton, so it cannot sign
+  onSequenceInfo // after each sequence: which signs came from recordings, letter photos or hand-made fallbacks
 }) {
   const boneTransitionsRef = useRef(new Map())
 
@@ -66,6 +79,8 @@ export function useAvatarRenderer({
   const speedRef = useRef(animationSpeed)
   const pauseRef = useRef(pauseDuration)
   const onTextUpdateRef = useRef(onTextUpdate)
+  const onSequenceInfoRef = useRef(onSequenceInfo)
+  onSequenceInfoRef.current = onSequenceInfo
   const onLoadingChangeRef = useRef(onLoadingChange)
   const onErrorRef = useRef(onError)
   const onWarningRef = useRef(onWarning)
@@ -167,10 +182,12 @@ export function useAvatarRenderer({
       const distV = (f.height / 2) / tanHalf
       const distH = f.halfWidth / (tanHalf * aspect)
       const dist = Math.max(distV, distH)
-      camera.position.set(0, f.centerY, f.centerZ + dist)
+      const yaw = ctx.viewYaw || 0 // QA view: 0 front, pi/4 three-quarter, pi/2 side
+      camera.position.set(Math.sin(yaw) * dist, f.centerY, f.centerZ + Math.cos(yaw) * dist)
       camera.lookAt(0, f.centerY, f.centerZ)
       camera.updateProjectionMatrix()
     }
+    ctx.frameAvatar = frameAvatar
 
     // 4. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -353,6 +370,10 @@ export function useAvatarRenderer({
 
           // Recorded sign clips drive this skeleton (built at rest, before the neutral pose)
           ctx.rig = buildRig(ctx.avatar, findBoneByName)
+          // every bone with its rest rotation: the return to rest covers all of them (a hand-made pose may move
+          // the neck, spine or shoulders too, which otherwise stayed bent: the avatar 'hung' after a sign)
+          ctx.allBones = []
+          ctx.avatar.traverse((o) => { if (o.isBone) ctx.allBones.push({ bone: o, restLocal: o.quaternion.clone() }) })
           // the neutral pose as local rotations: where a recorded clip returns to (not the T-pose rest)
           ctx.neutral = new Map()
           for (const [name, action, axis, value] of defaultPoseFrame()) {
@@ -408,15 +429,19 @@ export function useAvatarRenderer({
       if (disposed || !isMountedRef.current) return
       animLoopId = requestAnimationFrame(unifiedRenderLoop)
 
-      if (ctx.avatar && ctx.animations.length > 0 && !ctx.flag) {
+      if (ctx.avatar && ctx.animations.length > 0 && !ctx.flag && !ctx.debugPaused) { // debugPaused: QA page
         const currentFrame = ctx.animations[0]
 
         if (Array.isArray(currentFrame) && currentFrame[0] === 'blend-rest') {
           // after a recorded clip: arms and hands glide back to the rest pose (the neutral pose builds on it)
           const now = performance.now()
-          if (!ctx.blend) ctx.blend = { start: now, from: (ctx.rig?.restPose || []).map((r) => r.bone.quaternion.clone()) }
-          const a = Math.min((now - ctx.blend.start) / 280, 1)
-          ;(ctx.rig?.restPose || []).forEach((r, k) =>
+          if (!ctx.blend) {
+            const from = (ctx.allBones || ctx.rig?.restPose || []).map((r) => r.bone.quaternion.clone())
+            const far = (ctx.allBones || ctx.rig?.restPose || []).reduce((m, r, k) => Math.max(m, quatDeg(from[k], ctx.neutral?.get(r.bone) || r.restLocal)), 0)
+            ctx.blend = { start: now, from, ms: glideMs(far) }
+          }
+          const a = easeInOut(Math.min((now - ctx.blend.start) / ctx.blend.ms, 1))
+          ;(ctx.allBones || ctx.rig?.restPose || []).forEach((r, k) =>
             r.bone.quaternion.slerpQuaternions(ctx.blend.from[k], ctx.neutral?.get(r.bone) || r.restLocal, a))
           if (a >= 1) {
             ctx.blend = null
@@ -427,7 +452,16 @@ export function useAvatarRenderer({
           const [, frames, fps, follow = CLIP_FOLLOW] = currentFrame
           const now = performance.now()
           if (!ctx.clip || ctx.clip.frames !== frames) {
-            ctx.clip = { frames, start: now, tick: now }
+            const from = new Map([...frames[0].keys()].map((b) => [b, b.quaternion.clone()]))
+            const far = [...frames[0]].reduce((m, [b, q]) => Math.max(m, quatDeg(from.get(b), q)), 0)
+            const enterMs = glideMs(far)
+            ctx.clip = { frames, start: now + enterMs, tick: now + enterMs, enterStart: now, enterMs, from }
+          }
+          if (now < ctx.clip.start) { // entering: glide from the current pose to the sign's first frame
+            const a = easeInOut((now - ctx.clip.enterStart) / ctx.clip.enterMs)
+            for (const [bone, q] of frames[0]) bone.quaternion.slerpQuaternions(ctx.clip.from.get(bone), q, a)
+            if (renderer && scene && camera) { applyRetarget(); renderer.render(scene, camera) }
+            return
           }
           const ticks = Math.min((now - ctx.clip.tick) / (1000 / 60), 30)
           ctx.clip.tick = now
@@ -641,10 +675,19 @@ export function useAvatarRenderer({
     }))
     if (sequenceId !== sequenceIdRef.current || !isMountedRef.current) return // a newer request replaced this one
 
-    ctx.animations = []
-    ctx.clip = null
-    ctx.blend = null
-    boneTransitionsRef.current.clear()
+    // The item playing now (a sign, a glide, a hand-made pose) finishes; the rest of the old queue is replaced.
+    // This block is synchronous, so the render loop cannot run while the new queue is built.
+    const head = ctx.animations[0]
+    const keepHead = Boolean(head) && (Boolean(ctx.clip) || Boolean(ctx.blend) ||
+      (Array.isArray(head) && head.length > 0 && Array.isArray(head[0])))
+    if (!keepHead) {
+      ctx.clip = null
+      ctx.blend = null
+      boneTransitionsRef.current.clear()
+    }
+    const queue = []
+    ctx.animations = queue
+    const fallbacks = { letters: [], words: [], spelled: [] }
 
     const tokens = inputText.match(/([a-zA-Z]+|[^a-zA-Z]+)/g) || []
     let wordIndex = -1
@@ -735,6 +778,7 @@ export function useAvatarRenderer({
         }
 
         if (typeof wordAnimation === 'function') {
+          fallbacks.words.push(token.toUpperCase())
           ctx.animations.push(['add-text', token.charAt(0)])
           wordAnimation(ctx)
           if (token.length > 1) {
@@ -742,6 +786,7 @@ export function useAvatarRenderer({
           }
         } else {
           // Spell letter by letter: the letter photos' hand shapes, else the hand-made A-Z keyframes
+          if (token.length > 1) fallbacks.spelled.push(token.toUpperCase())
           let usedLetterClip = false
           for (const char of token) {
             const upperChar = char.toUpperCase()
@@ -756,6 +801,7 @@ export function useAvatarRenderer({
             const letterAnimation = AlphabetGestures[letterFuncName]
 
             if (typeof letterAnimation === 'function') {
+              fallbacks.letters.push(upperChar)
               ctx.animations.push(['add-text', char])
               letterAnimation(ctx)
             } else {
@@ -773,19 +819,29 @@ export function useAvatarRenderer({
       }
     }
 
-    setDefaultPose(ctx) // back to the neutral pose after the last sign
+    // back to the neutral pose after the last sign (a recorded or letter sign already glides there)
+    const last = queue[queue.length - 1]
+    if (!(Array.isArray(last) && last[0] === 'blend-rest')) queue.push(['blend-rest']) // every bone, smoothly
+    ctx.animations = keepHead ? [head, ...queue] : queue
 
     if (!ctx.pending) {
       ctx.pending = true
     }
+    onSequenceInfoRef.current?.({
+      text: inputText, recordedWords: recorded.size, letterShapes: letters.size,
+      fallbackLetters: [...new Set(fallbacks.letters)], fallbackWords: [...new Set(fallbacks.words)],
+      spelledWords: [...new Set(fallbacks.spelled)],
+      letterDataMissing: spelled.size > 0 && letters.size === 0,
+    })
   }, [])
 
   const resetToDefaultPose = useCallback(() => {
     const ctx = contextRef.current
     if (ctx.avatar && isMountedRef.current) {
-      ctx.animations = []
+      ctx.clip = null
+      ctx.blend = null
       boneTransitionsRef.current.clear()
-      setDefaultPose(ctx)
+      ctx.animations = [['blend-rest']] // every bone back to the neutral pose, smoothly
     }
   }, [])
 

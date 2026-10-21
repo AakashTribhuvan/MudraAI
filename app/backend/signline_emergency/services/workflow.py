@@ -201,10 +201,14 @@ def share(db: Session, session: EmergencySession) -> DispatchAttempt:
     db.add(attempt)
     if result.status == "DELIVERED":
         incident.sharing_status = "DELIVERED"
+        if incident.video_storage_key:
+            incident.video_sharing_status = "DELIVERED"  # same in-app destination as the report
         set_status(db, session, "SENT_TO_CONFIGURED_DESTINATION", reason=f"delivered to {settings.dispatch_destination}")
         track(db, "SHARE_SUCCEEDED", session.id, provider=provider.name)
     else:
         incident.sharing_status = "FAILED"
+        if incident.video_storage_key:
+            incident.video_sharing_status = "FAILED"
         set_status(db, session, "DELIVERY_FAILED", reason=result.error or "delivery failed")
         track(db, "SHARE_FAILED", session.id, provider=provider.name)
     db.flush()

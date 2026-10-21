@@ -23,5 +23,8 @@ def emergency_router() -> APIRouter:
 
         with session_factory()() as db:
             ensure_demo_responder(db)
+    from ..retention import start_scheduler
+
+    start_scheduler(settings.retention_interval_h)  # retention now, then every N hours
     log.info("SignLine Emergency mounted (demo mode: %s, recognition: %s)", settings.demo_mode, settings.recognition_provider)
     return build_router()

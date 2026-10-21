@@ -36,6 +36,15 @@ class EmergencySettings:
     # Requests per minute for sensitive endpoints (login, session creation, sharing)
     rate_limit_per_min: int = field(default_factory=lambda: int(os.getenv("SIGNLINE_EM_RATE_LIMIT_PER_MIN", "30")))
     run_migrations: bool = field(default_factory=lambda: _bool("SIGNLINE_EM_RUN_MIGRATIONS", True))
+    # Gesture demonstration videos (services/media_store.py); git-ignored like the database
+    media_dir: str = field(default_factory=lambda: os.getenv("SIGNLINE_EM_MEDIA_DIR", str(VAR_DIR / "emergency_media")))
+    # AES-256-GCM key for those videos: base64 in SIGNLINE_EM_MEDIA_KEY, else generated once into this file
+    media_key: str | None = field(default_factory=lambda: os.getenv("SIGNLINE_EM_MEDIA_KEY") or None)
+    media_key_file: str = field(default_factory=lambda: os.getenv("SIGNLINE_EM_MEDIA_KEY_FILE", str(VAR_DIR / "emergency_media.key")))
+    # A gesture's video is deleted this many days after it was recorded (0 = keep until the user deletes it)
+    gesture_video_retention_days: int = field(default_factory=lambda: int(os.getenv("SIGNLINE_EM_GESTURE_VIDEO_RETENTION_DAYS", "365")))
+    # The retention job runs at start-up and then every this many hours (0 = only when run by hand)
+    retention_interval_h: float = field(default_factory=lambda: float(os.getenv("SIGNLINE_EM_RETENTION_INTERVAL_H", "24")))
 
 
 _settings: EmergencySettings | None = None

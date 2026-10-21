@@ -7,9 +7,9 @@
 | Field | Value |
 |---|---|
 | Document version | 11 |
-| Last updated | 2026-10-20 |
-| Last updated at commit | the commit after `05e4f91`: avatar, teammate models, three modes, v10c/v11a (Section 21) |
-| Deployed models | words: `app/backend/models/isl_mudra_combined_v11a_bilstm` (324 words + `_BACKGROUND_`; v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
+| Last updated | 2026-10-21 |
+| Last updated at commit | checkpoint after `0d63c06`: emergency gesture reports + encrypted videos, avatar audit, NO fix, v12c (Section 21) |
+| Deployed models | words: `app/backend/models/isl_mudra_combined_v12c_bilstm` (326 words + `_BACKGROUND_`; v11a, v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
 | Tests | 112 backend passing (`pytest training app/backend/tests`: 74 + 6 sign library + 3 model system + 29 SignLine Emergency; data-dependent tests skip without `data/metadata`) + 15 frontend (`npm test` in `app/frontend`) |
 | Repository | `https://github.com/Addy-coder786/Mudra` (remote `mudra`); older pushes: `Addy-coder786/ISL_Addy` (remote `origin`) |
@@ -137,7 +137,8 @@ build a sentence and speak it.
 | **SignLine Emergency** (SOS circle, bottom-right of every page) | **Prototype, demo mode** | buttons / simulated signs / personal gestures → rule-based report with provenance → user confirms → mock delivery to an in-app responder desk; contacts no one; 29 tests; checked in desktop and mobile screenshots. `docs/SIGNLINE_EMERGENCY.md` |
 | Accounts and roles | **Demo only** | no server accounts or passwords; role kept in the browser; anyone can open Admin (Section 16) |
 | Game Mode | Working (local) | 70 lessons over the 314 words, real recorded examples, quizzes, XP / streak / badges in localStorage; no leaderboard (needs accounts) |
-| Recognition model **v11a** | Deployed 2026-10-20 | v10c + all 93 recorded takes (17 words; new FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME), takes x6, fine-tuned from v10c: owner's held-out takes 30/34 right and **0 wrong** (no mix-ups), other test 1,459 right / 13 wrong (v10c 1,456 / 18; v9 1,461 / 14) |
+| Recognition model **v12c** | Deployed 2026-10-21 | v11a + all 103 recorded takes (19 words; new I_AM_FINE, I_LOVE_YOU), takes x4, fine-tuned from v11a: owner's held-out takes 35/38 right and **0 wrong** (v11a 30/38), other test 1,457 right / 14 wrong (v11a 1,459 / 13) |
+| Recognition model **v11a** | Deployed 2026-10-20, now rollback | v10c + all 93 recorded takes (17 words; new FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME), takes x6, fine-tuned from v10c: owner's held-out takes 30/34 right and **0 wrong** (no mix-ups), other test 1,459 right / 13 wrong (v10c 1,456 / 18; v9 1,461 / 14) |
 | Recognition model **v10c** | Deployed 2026-10-20, now rollback | v9 + all 47 recorded takes (9 words, new FROM, PUNE), takes x6, fine-tuned from v9: owner's held-out takes 8/18 → 14/18 (test 5/9 → 8/9), other test 1,461 → 1,456 right (-0.3 points). `compare_word_models.py` |
 | Recognition model **v9** | Deployed 2026-10-18, now rollback | v8 recipe + the app's 30 recorded takes; test streams -0.2 to +2.2 points vs v8 everywhere; the owner's own takes 0-17% → 67-83% (6 clips, same session). `docs/SCALING_VOCABULARY.md` |
 | **Model system** (teammate's design, MitIndia `work/static-landmark-tracking`) | Selector in Communication *Words*; v9 default | `GET /models` lists each model with its measured accuracy; the teammate's static-pose model is opt-in: **0 of 22** shared-word signs right on our test clips vs **22 of 22** for v9, false alarms on 0.7% of other signs (`compare_static_model.py`). Since 8105c5e also the teammate's common-word (17) and ISL500 (14) video models and the Merged (v9 + 12 teammate words) and Auto (Merged + letters) modes; see `docs/TEAMMATE_MODELS.md` |
@@ -832,13 +833,15 @@ Other measurements:
 | **phrases v1** | 2026-10-16 | `phrases_only.yaml` + seq_len 48, no background | 58.3% top-1 / 81.3% top-5 test videos |
 
 | **v9** | 2026-10-18 | `mudra_words_v9.yaml`: v8 recipe on `combined_words_v4_app` (+ 30 app takes of 6 words) | test streams 7 fps vs v8: -0.2 to +2.2 points on every source and framing; owner's takes 0-17% → 67-83% (6 clips); clip test 98.33% |
+| **v12c** | 2026-10-21 | `mudra_words_v12c.yaml`: init from v11a, `combined_words_v7_app_r4` (103 app takes / 19 words, x4), lr 1e-4, best epoch 25 | owner's takes: test 19/19, val 16/19, 0 wrong (misses: one FRIEND and one PUNE validation take, TODAY at 0.68); other test 1,457 / 14 wrong; clip test 98.28%. With the taught-word bank: identical |
+| v12a / v12b | 2026-10-21 | same on x6, lr 1e-4 / 5e-5 | owner's takes 35/38 each, but other test 1,450 / 21 and 1,448 / 18 wrong (v12c better) |
 | **v11a** | 2026-10-20 | `mudra_words_v11a.yaml`: init from v10c, `combined_words_v6_app_r6` (93 app takes / 17 words, x6), lr 1e-4, best epoch 31 | owner's takes: test 16/17, val 14/17, 0 wrong; other test 1,459 / 13 wrong; clip test 98.35%. With the taught-word bank: identical (no override, no mix-up) |
 | v11b | 2026-10-20 | same with x4, lr 3e-4 | owner's takes 30/34, other test 1,456 / 15 wrong (v11a better) |
 | **v10c** | 2026-10-20 | `mudra_words_v10c.yaml`: init from v9, `combined_words_v5_app_r6` (47 app takes of 9 words, each training take x6), lr 1e-4, 60 epochs (best 34) | owner's held-out takes: test 8/9, val 6/9 (v9 5/9, 3/9); other test clips 1,456 right / 18 wrong (v9 1,461 / 14); clip test 98.27% |
 | v10 / v10b | 2026-10-19/20 | same, takes x10 lr 5e-4 / x4 lr 3e-4 | v10: owner's takes 15/16 but other test 1,427 / 39 wrong (rejected); v10b: 13/18, other 1,454 / 20 (v10c better) |
 | v9 cosine (push-apart) | – | `mudra_words_v9_cos.yaml`, CosFace head | worse than v9 on validation streams (e.g. desk 63.9% vs 66.7%); not deployed |
 
-v11a is deployed (2026-10-20); v10c and v9 are kept for rollback (`MUDRA_MODEL_DIR`). Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
+v12c is deployed (2026-10-21); v11a, v10c and v9 are kept for rollback (`MUDRA_MODEL_DIR`). Before: v11a deployed 2026-10-20. Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
 
 ---
 
@@ -1079,7 +1082,86 @@ that need the model or landmark data skip automatically when those files are mis
 
 ## 21. Change log (newest first)
 
+### 2026-10-21 · v12c deployed: I_AM_FINE and I_LOVE_YOU from the owner's recordings (checkpoint commit, not pushed)
+- Owner recorded 2 more signs (I_AM_FINE, I_LOVE_YOU; now 103 takes / 19 words). v11a missed all 4 of their
+  held-out takes (LOOSE, TOOL, SPRING, all below the threshold), so the words were not live.
+- Splits `combined_words_v7_app_r6` / `_r4` (`build_app_split.py --base combined_words_v3`, same test takes);
+  configs `mudra_words_v12a/b/c.yaml` (init from v11a). `compare_word_models.py --models v11a v12a v12b v12c
+  --split combined_words_v7_app_r6 --bank`: owner's held-out takes v11a 30/38, v12a/b/c 35/38, all 0 wrong; other
+  test 1,459 / 13 (v11a), 1,450 / 21 (v12a, x6), 1,448 / 18 (v12b, lr 5e-5), **1,457 / 14 (v12c, x4)**. v12c
+  deployed (`settings.py`); v12a/b exports deleted. Remaining misses as before: one FRIEND and one PUNE validation
+  take (near-zero confidence, likely the recording, e.g. PUNE's 12-14 fps take) and TODAY (0.68, just below 0.7).
+- Backend tests: 90 passed.
+
 Add one entry per push: date · commits · what changed · why · measured effect (split).
+
+### 2026-10-21 · Avatar: no more hand-made words, the owner's recordings as signs, full return to rest (checkpoint commit, not pushed)
+- Owner's screenshots (NO): the hand-made NO swung an arm out sideways and turned the hands backwards (joint
+  angles written for another skeleton orientation), and the avatar then stayed in that pose ("hanging"): the
+  end-of-sequence neutral step (`setDefaultPose`) sets only 4 joint angles, leaving every other bone bent.
+- Fixes: every sequence (and Rest / replay) ends with a smooth return of ALL skeleton bones to the neutral pose
+  (`ctx.allBones`, `blend-rest`); all hand-made words are off (NO, YES, GOODBYE, BYE, HELP added to
+  `HANDMADE_OFF`): words without a recording are spelled with the letter-photo shapes and the viewer says so,
+  inviting a recording. `ReferenceClips.add_app_recordings`: the owner's Teach-a-sign takes are avatar examples
+  for words without a training video (best take per word, refreshed after each new recording): FOOD, FROM, HELP,
+  HOW_MUCH, ME, NEED, PUNE, THIS, WATER, WHAT_TIME. Checked: "help no" plays HELP (own recording), N, O, then
+  glides to rest and stays there. Tests: `tests/test_references_app.py` (2); backend 90, frontend 36.
+
+### 2026-10-21 · Avatar anatomy and animation audit: letter placement, jitter, queue (checkpoint commit, not pushed)
+- Letter A cause (measured on Y Bot): the solver reached every wrist target exactly; the targets were wrong.
+  `letterClip()` scaled the photo by the palm length (wrist -> middle knuckle), which a palm tilted towards the
+  camera foreshortens (A photo: finger chain 3.02x the palm vs 1.84x anatomically), so hand-to-hand distances
+  were ~1.6x too large: A's wrists at +-0.77 shoulder widths, thumbs 2.56 hand sizes apart (photo 0.85 on the
+  true scale 0.30), elbows flared to -1.06. Fix: scale = 25th percentile over 10 hand segments (palm, width,
+  finger segments); two-handed letters whose hands touch in the photo (< 1 hand size) move the wrists until the
+  same landmark pair touches on the avatar (3 iterations, skeleton pose saved / restored); elbows wider than
+  0.3 upper-arm lengths outside the shoulder cost more. After: A wrists +-0.38, contact photo 0.30 = avatar
+  0.30 (B 0.17/0.17, D 0.20/0.20, G 0.13/0.13, K, P, T equal), right elbow -0.58..-0.70; letter agreement
+  hand 1.8 -> 1.4 deg, palm 3.2 -> 3.0.
+- Letters have no body reference (alphabet photos are hand crops): the chest zone is still a default; J / Z
+  motion is not represented. Recording A-Z on Teach a sign would give real body placement and motion.
+- Jitter cause: not single-frame landmark spikes (a 3-frame median changed nothing; kept, harmless) but solver
+  discontinuities: the elbow plane of a nearly straight / fully folded arm turned 113 deg in one frame (YOU #17)
+  and twists wrapped at +-180 deg; plus finger flicker from hidden fingers. Fixes: elbow plane blended with the
+  last one by how well it is defined (|bend| 0.1..0.5); bounded angle unwrap (<= 30 deg past +-180, an unbounded
+  unwrap raised palm error 1.8 -> 6.6 deg and was rejected); per-bone rate limit (arms 900, fingers 700 deg/s).
+  8 words: largest one-frame bone change 174 -> 72 deg, finger steps > 720 deg/s 1.3% -> 0%, word agreement palm
+  1.8 -> 2.5 deg, fingers 8.6 -> 9.5 deg. Transitions between signs and back to rest now glide 160-620 ms by
+  angle (were 280 ms / ~5 frames for up to 122 deg); no duplicate neutral step after a recorded sign.
+- Queue: a new text no longer cuts the sign that is playing (it finishes, then the new sequence replaces the
+  rest; checked in the browser). Fallbacks are visible: the viewer says which letters / words used the
+  approximate hand-made animations, or that letter data is missing on this server (`onSequenceInfo`).
+- New dev-only page `/dev/avatar-qa` (`pages/dev/AvatarQAPage.jsx`): letters and recorded words, play / pause /
+  scrub, front / three-quarter / side views, skeleton overlay, wrist target markers, fallback report, fps,
+  slowest frame and fastest bone turn, snapshot. Frontend tests 30 -> 36. Visual check: A, B, D, K, P in front of
+  the chest with the hands meeting. ISL correctness still needs a Deaf / qualified ISL signer.
+
+### 2026-10-21 · Emergency: gesture reports to the responder desk, encrypted videos, retention (checkpoint commit, not pushed)
+- Gesture report linked into the normal flow: `POST /gestures/{id}/request-assistance` (session -> gesture ->
+  location -> review -> confirm, READY_TO_SHARE); the session page shares it and shows Delivered (receipt) /
+  Acknowledged / Resolved / Delivery failed + retry. Video only with sharing consent, as the incident's own
+  encrypted copy; responders view it (`/responder/incidents/{id}/video`, audited). Migration `0003`.
+- Videos encrypted at rest (AES-256-GCM, `cryptography==50.0.2` added with the owner's OK; key in
+  `SIGNLINE_EM_MEDIA_KEY` or `var/emergency_media.key`). Retention job at start-up and every 24 h: old ended
+  sessions + incident videos, gesture videos after 365 days, orphan files. Fixed: deleting an ended session with an
+  incident failed (ORM nulled `session_id`); the relationship now cascades.
+- Tests: emergency 45 -> 54. Browser run (fake camera): record, save, prepare with video, share -> Delivered;
+  responder: open, Show video, Acknowledge.
+
+### 2026-10-21 · Emergency: gesture videos, emergency numbers, dial and share screen (checkpoint commit, not pushed)
+- Owner's spec (2-hour core agreed): Add gesture wizard with camera recording (`recorder.js`, `GestureRecorder`,
+  `GestureWizard`); clickable gestures with a detail page (video, edit, retake, delete, test); Request emergency
+  assistance -> review (service + number, optional location, message with provenance, video) -> Call (confirm,
+  then `tel:` dialer; user presses call) and Share (share sheet; video only with consent and file support; never
+  claims delivery). Backend: migration `0002` (gesture video fields, recording consent, emergency contact),
+  `services/media_store.py` (consent-only, random keys, WebM/MP4 by content, <= 25 MB / 30 s, owner-only,
+  deleted with the gesture), `config/emergency_contacts.json` (13 India numbers, all unverified, default 112),
+  `services/gesture_report.py`, endpoints `/gestures/{id}/video`, `/gestures/{id}/report`, `/contacts`.
+- Privacy exception approved by the owner and written into AGENTS.md: gesture demonstration videos are stored
+  (consent, device-only, never committed / logged / used for training).
+- Tests: emergency 29 -> 45 (backend 79 total), frontend 21 -> 30. Fake-camera browser run: record 3.6 s, save,
+  open, review, `tel:112`. Deferred: number verification, state lists, linking to the session / responder flow
+  (delivered / acknowledged), video retention job and encryption, responder video access.
 
 ### 2026-10-20 · Communication (Sign -> Voice) mobile layout · `80ffde2`
 - Owner: on phones the camera filled the screen and the detected sign was 2-3 scrolls below it. Causes: a phone rule

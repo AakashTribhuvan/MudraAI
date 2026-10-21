@@ -13,7 +13,8 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -47,8 +48,10 @@ from ..services.auth import (
     session_token_ok,
     verify_password,
 )
+from ..services import gesture_report as gr
 from ..services.context_engine import category_label, rules_config
 from ..services.location import LocationIn, to_record
+from ..services.media_store import LocalMediaStore, MediaError, MediaStorageError, get_media_store, validate_video
 from ..services.recognition import RecognitionEvent, get_provider
 from ..services.recognition.mock_provider import scenario, scenario_config
 from ..services.sequence_manager import SequenceError, SignSequenceManager
@@ -150,7 +153,15 @@ def _incident(db: Session, inc: EmergencyIncident, for_responder: bool = False) 
             "communication_needs": inc.communication_needs, "location": inc.location, "priority": inc.priority,
             "demo": inc.demo, "created_at": _iso(inc.created_at),
             "facts": [{"kind": f.kind, "key": f.key, "value": f.value, "provenance": f.provenance} for f in inc.facts],
-            "dispatch_attempts": _dispatches(db, inc.id)}
+            "dispatch_attempts": _dispatches(db, inc.id),
+            "gesture_id": inc.gesture_id, "emergency_contact": gr.find_contact(inc.emergency_contact_id),
+            "emergency_message": inc.emergency_message,
+            "report_sharing_status": inc.sharing_status, "video_sharing_status": inc.video_sharing_status,
+            "video": None if not inc.video_storage_key else {
+                "mime_type": inc.video_mime_type, "duration_seconds": inc.video_duration_seconds,
+                "sharing_consent": inc.sharing_consent, "sharing_consent_at": _iso(inc.sharing_consent_at)}}
+    attempts = view["dispatch_attempts"]
+    view["delivery_receipt"] = next((a["receipt_id"] for a in reversed(attempts) if a["status"] == "DELIVERED"), None)
     if for_responder:
         notes = db.execute(select(ResponderNote, User.display_name).join(User, User.id == ResponderNote.user_id)
                            .where(ResponderNote.incident_id == inc.id).order_by(ResponderNote.id)).all()
@@ -244,6 +255,7 @@ class GestureIn(BaseModel):
     require_confirmation: bool = True
     cooldown_s: int = Field(default=10, ge=0, le=3600)
     image_ref: str | None = Field(default=None, max_length=255)
+    emergency_contact_id: str | None = Field(default=None, max_length=40)
 
 
 class GesturePatch(BaseModel):
@@ -254,6 +266,19 @@ class GesturePatch(BaseModel):
     enabled: bool | None = None
     require_confirmation: bool | None = None
     cooldown_s: int | None = Field(default=None, ge=0, le=3600)
+    emergency_contact_id: str | None = Field(default=None, max_length=40)
+
+
+class AssistIn(BaseModel):
+    contact_id: str | None = Field(default=None, max_length=40)
+    location: LocationIn | None = None
+    include_video: bool = False
+    sharing_consent: bool = False
+
+
+class GestureReportIn(BaseModel):
+    contact_id: str | None = Field(default=None, max_length=40)
+    location_text: str | None = Field(default=None, max_length=300)
 
 
 class PreferencesIn(BaseModel):
@@ -281,7 +306,35 @@ def _gesture(g: CustomGesture) -> dict:
             "category_label": category_label(g.category), "message": g.message, "enabled": g.enabled,
             "require_confirmation": bool(g.activation.get("require_confirmation", True)),
             "cooldown_s": int(g.activation.get("cooldown_s", 0)), "image_ref": g.image_ref,
-            "last_triggered_at": _iso(g.last_triggered_at)}
+            "last_triggered_at": _iso(g.last_triggered_at),
+            "has_video": bool(g.video_storage_key), "video_mime_type": g.video_mime_type,
+            "video_duration_seconds": g.video_duration_seconds, "recording_consent": bool(g.recording_consent),
+            "recording_consent_at": _iso(g.recording_consent_at), "emergency_contact_id": g.emergency_contact_id,
+            "emergency_contact": gr.find_contact(g.emergency_contact_id), "created_at": _iso(g.created_at),
+            "updated_at": _iso(g.updated_at)}
+
+
+def _media() -> LocalMediaStore:
+    try:
+        return get_media_store()
+    except MediaStorageError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+def _video_response(storage_key: str, mime: str | None) -> Response:
+    try:
+        data = _media().read(storage_key)
+    except MediaStorageError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(content=data, media_type=mime or "application/octet-stream", headers={"Cache-Control": "no-store"})
+
+
+def _check_contact(contact_id: str | None) -> None:
+    if contact_id is not None and gr.find_contact(contact_id) is None:
+        raise HTTPException(422, "unknown emergency contact")
+
+
+MAX_UPLOAD_READ = 25 * 1024 * 1024 + 1  # one byte more than allowed, so too-large files are detected
 
 
 def build_router() -> APIRouter:
@@ -531,9 +584,10 @@ def build_router() -> APIRouter:
         count = db.scalar(select(func.count()).select_from(CustomGesture).where(CustomGesture.device_key == key))
         if count >= 20:
             raise HTTPException(409, "at most 20 gestures per device")
+        _check_contact(body.emergency_contact_id)
         g = CustomGesture(device_key=key, name=body.name.strip(), description=body.description, intent=body.intent,
                           category=_intent_category(body.intent), message=body.message.strip(), enabled=body.enabled,
-                          image_ref=body.image_ref,
+                          image_ref=body.image_ref, emergency_contact_id=body.emergency_contact_id,
                           activation={"require_confirmation": body.require_confirmation, "cooldown_s": body.cooldown_s})
         db.add(g)
         db.commit()
@@ -551,7 +605,9 @@ def build_router() -> APIRouter:
         data = body.model_dump(exclude_none=True)
         if "intent" in data:
             g.intent, g.category = data["intent"], _intent_category(data["intent"])
-        for f in ("name", "description", "message", "enabled"):
+        if "emergency_contact_id" in data:
+            _check_contact(data["emergency_contact_id"])
+        for f in ("name", "description", "message", "enabled", "emergency_contact_id"):
             if f in data:
                 setattr(g, f, data[f])
         activation = dict(g.activation)
@@ -564,9 +620,134 @@ def build_router() -> APIRouter:
 
     @r.delete("/gestures/{gesture_id}")
     def delete_gesture(gesture_id: str, key: DeviceKey, db: DB) -> dict:
-        db.delete(_own_gesture(db, key, gesture_id))
+        g = _own_gesture(db, key, gesture_id)
+        video = g.video_storage_key
+        db.delete(g)
         db.commit()
-        return {"deleted": gesture_id}
+        _media().delete(video)  # the recording goes with its gesture
+        return {"deleted": gesture_id, "video_deleted": bool(video)}
+
+    # -- demonstration video (owner only; never logged, never used for training)
+    @r.put("/gestures/{gesture_id}/video")
+    async def put_gesture_video(gesture_id: str, key: DeviceKey, db: DB, file: UploadFile = File(...),
+                                duration_s: float = Form(...), recording_consent: bool = Form(...)) -> dict:
+        g = _own_gesture(db, key, gesture_id)
+        if not recording_consent:
+            raise HTTPException(422, "recording consent is required to store a video")
+        data = await file.read(MAX_UPLOAD_READ)
+        try:
+            mime = validate_video(data, file.content_type, duration_s)
+            new_key = _media().save(data, mime)
+        except MediaError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except MediaStorageError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        old = g.video_storage_key
+        g.video_storage_key, g.video_mime_type = new_key, mime
+        g.video_duration_seconds, g.video_size_bytes = round(float(duration_s), 2), len(data)
+        g.recording_consent, g.recording_consent_at = True, datetime.now(timezone.utc)
+        db.commit()
+        _media().delete(old)  # retake: the previous recording is removed
+        track(db, "GESTURE_VIDEO_SAVED", None, mime=mime)
+        db.commit()
+        return _gesture(g)
+
+    @r.get("/gestures/{gesture_id}/video")
+    def get_gesture_video(gesture_id: str, key: DeviceKey, db: DB) -> Response:
+        g = _own_gesture(db, key, gesture_id)
+        if not g.video_storage_key:
+            raise HTTPException(404, "this gesture has no video")
+        return _video_response(g.video_storage_key, g.video_mime_type)
+
+    @r.delete("/gestures/{gesture_id}/video")
+    def delete_gesture_video(gesture_id: str, key: DeviceKey, db: DB) -> dict:
+        g = _own_gesture(db, key, gesture_id)
+        old = g.video_storage_key
+        g.video_storage_key = g.video_mime_type = g.video_duration_seconds = g.video_size_bytes = None
+        db.commit()
+        _media().delete(old)
+        return _gesture(g)
+
+    # -- emergency contacts and the report prepared from a gesture (nothing is sent or dialled here)
+    @r.get("/contacts")
+    def contacts(region: str | None = None) -> dict:
+        try:
+            reg, items = gr.region_contacts(region)
+        except KeyError as exc:
+            raise HTTPException(404, "unknown region") from exc
+        cfg = gr.contacts_config()
+        return {"region": reg, "regions": {k: v["label"] for k, v in cfg["regions"].items()},
+                "default_contact_id": cfg["default_contact_id"], "contacts": items, "note": cfg["_note"]}
+
+    @r.post("/gestures/{gesture_id}/report")
+    def gesture_report(gesture_id: str, body: GestureReportIn, key: DeviceKey, db: DB) -> dict:
+        g = _own_gesture(db, key, gesture_id)
+        contact_id = body.contact_id or g.emergency_contact_id
+        contact = gr.find_contact(contact_id) if contact_id else gr.default_contact()
+        if contact is None:
+            raise HTTPException(422, "unknown emergency contact")
+        p = db.scalar(select(UserPreference).where(UserPreference.device_key == key))
+        report = gr.build_report(g, contact, p.communication_needs if p else [], body.location_text)
+        track(db, "GESTURE_REPORT_PREPARED", None, category=g.category)
+        db.commit()
+        return {"gesture": _gesture(g), **report}
+
+    @r.post("/gestures/{gesture_id}/request-assistance")
+    async def request_assistance(gesture_id: str, body: AssistIn, request: Request, key: DeviceKey, db: DB) -> dict:
+        """Prepare a report from a gesture through the normal flow (session -> gesture -> review -> confirm) up to
+        READY_TO_SHARE. Nothing is shared: the user shares it with POST /sessions/{id}/share, after which the
+        status shows delivered / acknowledged / resolved or delivery failed."""
+        g = _own_gesture(db, key, gesture_id)
+        if not g.enabled:
+            raise HTTPException(409, "this gesture is turned off")
+        contact_id = body.contact_id or g.emergency_contact_id
+        contact = gr.find_contact(contact_id) if contact_id else gr.default_contact()
+        if contact is None:
+            raise HTTPException(422, "unknown emergency contact")
+        if body.include_video and not g.video_storage_key:
+            raise HTTPException(422, "this gesture has no video")
+        if body.include_video and not body.sharing_consent:
+            raise HTTPException(422, "sharing the video needs your consent")
+        _rate(f"session:{key}")
+        _rate(f"session-ip:{_client(request)}", 60)
+        settings = get_settings()
+        token, token_hash = new_session_token()
+        session = EmergencySession(device_key=key, access_token_hash=token_hash, mode="GESTURE", demo=settings.demo_mode)
+        db.add(session)
+        db.flush()
+        db.add(StatusHistory(session_id=session.id, from_status=None, to_status="SESSION_CREATED", actor_type="USER",
+                             reason="session started from a personal gesture"))
+        await get_provider().start_session(session.id)
+        track(db, "SESSION_STARTED", session.id, mode="GESTURE", scenario_id=None)
+        location_text = None
+        with errors():
+            wf.trigger_gesture(db, session, g)
+            if body.location is not None:
+                session.location = to_record(body.location, settings.demo_mode)
+                audit(db, "SESSION", session.id, "LOCATION_SHARED", "USER", source=body.location.source)
+                loc = body.location
+                location_text = loc.text or (f"{loc.lat:.5f}, {loc.lon:.5f}" + (f" (±{loc.accuracy_m:.0f} m)" if loc.accuracy_m else ""))
+            _, ctx = wf.context_of(db, session)
+            category, summary = wf.effective(session, ctx)
+            if not category or not summary:  # the gesture's own category and message, as saved by the user
+                wf.correct_report(db, session, None if category else g.category, None if summary else g.message)
+            wf.review(db, session)
+            incident = wf.confirm(db, session)
+        p = db.scalar(select(UserPreference).where(UserPreference.device_key == key))
+        report = gr.build_report(g, contact, p.communication_needs if p else [], location_text)
+        incident.gesture_id, incident.emergency_contact_id, incident.emergency_message = g.id, contact["id"], report["text"]
+        if body.include_video:
+            try:
+                incident.video_storage_key = _media().copy(g.video_storage_key)
+            except MediaStorageError as exc:
+                db.rollback()
+                raise HTTPException(503, str(exc)) from exc
+            incident.video_mime_type, incident.video_duration_seconds = g.video_mime_type, g.video_duration_seconds
+            incident.sharing_consent, incident.sharing_consent_at = True, datetime.now(timezone.utc)
+            incident.video_sharing_status = "ATTACHED"
+            audit(db, "INCIDENT", incident.id, "VIDEO_ATTACHED_WITH_CONSENT", "USER")
+        db.commit()
+        return {"session": session_view(db, session), "access_token": token, "report": report}
 
     @r.post("/gestures/{gesture_id}/test")
     def test_gesture(gesture_id: str, key: DeviceKey, db: DB) -> dict:
@@ -648,6 +829,18 @@ def build_router() -> APIRouter:
         track(db, event, inc.session_id, category=inc.category)
         db.commit()
         return _incident(db, inc, for_responder=True)
+
+    @r.get("/responder/incidents/{incident_id}/video")
+    def incident_video(incident_id: str, user: Responder, db: DB) -> Response:
+        """The video the user chose to share with this report (delivered reports only)."""
+        inc = _visible(db, incident_id)
+        if not inc.video_storage_key or not inc.sharing_consent:
+            raise HTTPException(404, "no video was shared with this report")
+        response = _video_response(inc.video_storage_key, inc.video_mime_type)
+        db.add(ResponderAction(incident_id=inc.id, user_id=user.id, action="VIEW_VIDEO"))
+        audit(db, "INCIDENT", inc.id, "VIDEO_VIEWED", "RESPONDER", user.id)
+        db.commit()
+        return response
 
     @r.post("/responder/incidents/{incident_id}/acknowledge")
     def acknowledge(incident_id: str, user: Responder, db: DB) -> dict:

@@ -538,6 +538,16 @@ function ReportPanel({ view, categories, busy, act, onDone }) {
         <div className="space-y-3">
           <p className="font-bold">{incident.category_label}</p>
           <p className="text-sm">{incident.summary}</p>
+          {incident.emergency_contact && (
+            <p className="text-xs text-sl-ink-600">Prepared from your gesture. Emergency number chosen: {incident.emergency_contact.number} {incident.emergency_contact.service} (call it yourself from the gesture page; sharing here does not call anyone).</p>
+          )}
+          {status === 'READY_TO_SHARE' && <p className="text-sm font-bold">Report prepared. Not shared yet.</p>}
+          {incident.video && (
+            <p className="rounded-sl border border-sl-cream-300 p-2 text-xs">
+              Your gesture video is attached with your consent:{' '}
+              <strong>{{ ATTACHED: 'not shared yet', DELIVERED: 'delivered with the report', FAILED: 'not delivered' }[incident.video_sharing_status] || incident.video_sharing_status}</strong>.
+            </p>
+          )}
           {status === 'READY_TO_SHARE' && (
             <Button className="w-full bg-rose-600 text-white hover:bg-rose-700" disabled={busy} onClick={() => act('/share')}>
               <Send className="h-4 w-4" aria-hidden="true" /> Share with the demo responder desk

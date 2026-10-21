@@ -31,6 +31,8 @@ import { EmergencyLayout } from './features/emergency/components'
 import EmergencyStartPage from './pages/emergency/EmergencyStartPage'
 import EmergencySessionPage from './pages/emergency/EmergencySessionPage'
 import EmergencyGesturesPage from './pages/emergency/EmergencyGesturesPage'
+import EmergencyGestureDetailPage from './pages/emergency/EmergencyGestureDetailPage'
+import AvatarQAPage from './pages/dev/AvatarQAPage'
 import EmergencyAboutPage from './pages/emergency/EmergencyAboutPage'
 import { ResponderDashboardPage, ResponderIncidentPage, ResponderLoginPage } from './pages/emergency/ResponderPages'
 
@@ -188,6 +190,7 @@ export default function App() {
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/legal/:doc" element={<LegalPage />} />
+            {import.meta.env.DEV && <Route path="/dev/avatar-qa" element={<AvatarQAPage />} />}
             <Route path="/app/*" element={<RequireRole role="user"><UserRoutes /></RequireRole>} />
             <Route path="/admin/*" element={<RequireRole role="admin"><AdminRoutes /></RequireRole>} />
             {/* SignLine Emergency: open without signing in */}
@@ -195,6 +198,7 @@ export default function App() {
               <Route index element={<EmergencyStartPage />} />
               <Route path="session/:sessionId" element={<EmergencySessionPage />} />
               <Route path="gestures" element={<EmergencyGesturesPage />} />
+              <Route path="gestures/:gestureId" element={<EmergencyGestureDetailPage />} />
               <Route path="about" element={<EmergencyAboutPage />} />
             </Route>
             <Route path="/settings/emergency-gestures" element={<Navigate to="/emergency/gestures" replace />} />

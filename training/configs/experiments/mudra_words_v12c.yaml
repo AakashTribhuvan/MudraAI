@@ -1,0 +1,15 @@
+# v12c candidate: as v12a with each take listed 4 times (v12a lost 8 other-test clips),
+# each training take listed 6 times. Starts from v11a's weights.
+#     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v7_app_r4 --train-repeat 4
+#     python training/scripts/train.py --config mudra_words_v12c.yaml --name combined_v12c
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v11a_20261020-093802
+
+data:
+  split_dir: data/metadata/splits/combined_words_v7_app_r4
+
+train:
+  epochs: 60
+  warmup_epochs: 2
+  patience: 25
+  lr: 0.0001

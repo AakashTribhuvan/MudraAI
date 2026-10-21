@@ -1,0 +1,15 @@
+# v12a candidate: v11a + every recorded take (103 takes / 19 words on 2026-10-21; new: I_AM_FINE, I_LOVE_YOU),
+# each training take listed 6 times. Starts from v11a's weights.
+#     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v7_app_r6 --train-repeat 6
+#     python training/scripts/train.py --config mudra_words_v12a.yaml --name combined_v12a
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v11a_20261020-093802
+
+data:
+  split_dir: data/metadata/splits/combined_words_v7_app_r6
+
+train:
+  epochs: 60
+  warmup_epochs: 2
+  patience: 25
+  lr: 0.0001

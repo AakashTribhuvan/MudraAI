@@ -1,0 +1,237 @@
+{
+  "_note": "Emergency and helpline numbers for the dial screen. Not verified: check each number, its jurisdiction and current availability against a current authoritative source (https://112.gov.in/, https://www.india.gov.in/directory/helpline) before production, then set verified=true with source and checked_on. Specialist numbers can work differently per state: add state entries under regions.",
+  "default_region": "IN",
+  "default_contact_id": "in_112",
+  "regions": {
+    "IN": {
+      "label": "India (national)",
+      "contacts": [
+        {
+          "id": "in_112",
+          "service": "Unified emergency response",
+          "number": "112",
+          "categories": [
+            "ASSAULT",
+            "DROWNING",
+            "ELECTRICAL",
+            "FIRE",
+            "FOLLOWING_STALKING",
+            "GENERAL_ACCIDENT",
+            "GENERAL_HELP",
+            "LOST_STRANDED",
+            "MEDICAL",
+            "MISSING_PERSON",
+            "NATURAL_DISASTER",
+            "POLICE_SAFETY",
+            "ROAD_ACCIDENT",
+            "TRAPPED",
+            "UNKNOWN"
+          ],
+          "notes": "Primary all-in-one emergency number.",
+          "availability": "national",
+          "urgent": true,
+          "verified": false,
+          "source": "https://112.gov.in/",
+          "checked_on": null
+        },
+        {
+          "id": "in_100",
+          "service": "Police",
+          "number": "100",
+          "categories": [
+            "ASSAULT",
+            "FOLLOWING_STALKING",
+            "POLICE_SAFETY"
+          ],
+          "notes": "Legacy police helpline; may be routed through 112.",
+          "availability": "varies",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_101",
+          "service": "Fire and rescue",
+          "number": "101",
+          "categories": [
+            "DROWNING",
+            "ELECTRICAL",
+            "FIRE",
+            "LOST_STRANDED",
+            "NATURAL_DISASTER",
+            "TRAPPED"
+          ],
+          "notes": "Fire emergency.",
+          "availability": "varies",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_102",
+          "service": "National Ambulance Service",
+          "number": "102",
+          "categories": [
+            "MEDICAL"
+          ],
+          "notes": "Ambulance service.",
+          "availability": "varies",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_108",
+          "service": "Ambulance / state emergency medical service",
+          "number": "108",
+          "categories": [
+            "GENERAL_ACCIDENT",
+            "MEDICAL",
+            "ROAD_ACCIDENT"
+          ],
+          "notes": "Availability and function vary by state.",
+          "availability": "varies",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_103",
+          "service": "Traffic police",
+          "number": "103",
+          "categories": [
+            "ASSAULT",
+            "FOLLOWING_STALKING",
+            "GENERAL_ACCIDENT",
+            "POLICE_SAFETY",
+            "ROAD_ACCIDENT"
+          ],
+          "notes": "Verify local availability and routing.",
+          "availability": "varies",
+          "urgent": false,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_1073",
+          "service": "Road accident assistance",
+          "number": "1073",
+          "categories": [
+            "GENERAL_ACCIDENT",
+            "ROAD_ACCIDENT"
+          ],
+          "notes": "Listed as a road-accident helpline.",
+          "availability": "varies",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_1033",
+          "service": "National Highways assistance",
+          "number": "1033",
+          "categories": [
+            "GENERAL_ACCIDENT",
+            "ROAD_ACCIDENT"
+          ],
+          "notes": "Highway-related assistance.",
+          "availability": "national",
+          "urgent": false,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_181",
+          "service": "Women in distress",
+          "number": "181",
+          "categories": [
+            "ASSAULT",
+            "FOLLOWING_STALKING",
+            "GENERAL_HELP",
+            "MISSING_PERSON",
+            "POLICE_SAFETY"
+          ],
+          "notes": "Women's helpline; verify local service scope.",
+          "availability": "varies",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_1098",
+          "service": "Child helpline",
+          "number": "1098",
+          "categories": [
+            "ASSAULT",
+            "FOLLOWING_STALKING",
+            "GENERAL_HELP",
+            "MISSING_PERSON",
+            "POLICE_SAFETY"
+          ],
+          "notes": "Child protection and assistance.",
+          "availability": "national",
+          "urgent": true,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_1930",
+          "service": "Cybercrime financial fraud",
+          "number": "1930",
+          "categories": [
+            "ASSAULT",
+            "FOLLOWING_STALKING",
+            "POLICE_SAFETY"
+          ],
+          "notes": "Cybercrime helpline.",
+          "availability": "national",
+          "urgent": false,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_1070",
+          "service": "Disaster relief",
+          "number": "1070",
+          "categories": [
+            "DROWNING",
+            "LOST_STRANDED",
+            "NATURAL_DISASTER",
+            "TRAPPED"
+          ],
+          "notes": "Relief commissioner / disaster-related assistance; verify jurisdiction.",
+          "availability": "varies",
+          "urgent": false,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        },
+        {
+          "id": "in_139",
+          "service": "Railway assistance",
+          "number": "139",
+          "categories": [
+            "GENERAL_HELP",
+            "MISSING_PERSON"
+          ],
+          "notes": "Railway assistance; check which channel fits the incident.",
+          "availability": "national",
+          "urgent": false,
+          "verified": false,
+          "source": "https://www.india.gov.in/directory/helpline",
+          "checked_on": null
+        }
+      ]
+    }
+  }
+}

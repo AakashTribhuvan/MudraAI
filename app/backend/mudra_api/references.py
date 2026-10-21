@@ -31,8 +31,29 @@ class ReferenceClips:
                 cur = self.best.get(r.label)
                 if cur is None or rank < cur[0]:
                     self.best[r.label] = (rank, r)
+        self.trained = set(self.best)  # words with a training-video example
         self.available = set(self.best)
         self._cache: dict[str, dict] = {}
+
+    def add_app_recordings(self, manifest: Path) -> int:
+        """The owner's own takes (Teach a sign, manifest_app.csv) as examples for words that have no training
+        video, e.g. HELP or FOOD: the best take per word (most frames with hands). Called again after each new
+        recording, so a recorded word can be signed by the avatar straight away. Returns the words added."""
+        if not Path(manifest).exists():
+            return 0
+        best: dict[str, object] = {}
+        for r in read_manifest(Path(manifest)):
+            if r.label in self.trained or r.quality_flag or not Path(r.landmarks_path).exists():
+                continue
+            cur = best.get(r.label)
+            if cur is None or r.any_hand_rate > cur.any_hand_rate:
+                best[r.label] = r
+        for label, r in best.items():
+            if self.best.get(label, (None, None))[1] is not r:
+                self.best[label] = ((len(PREFERRED_SOURCES), -r.any_hand_rate), r)
+                self._cache.pop(label, None)
+        self.available = set(self.best)
+        return len(best)
 
     def get(self, sign: str) -> dict | None:
         if sign not in self.best:

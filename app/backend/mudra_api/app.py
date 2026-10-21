@@ -61,6 +61,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         load_error = f"Model files not found in {settings.model_dir}: {exc.filename}"
         log.warning(load_error)
     references = ReferenceClips(settings.reference_split, world_dir=settings.reference_world_dir)
+    app_manifest = settings.recordings_dir / "metadata" / "manifest_app.csv"
+    references.add_app_recordings(app_manifest)  # the owner's own takes sign the words without a training video
     # Selectable word models (GET /models; the stream start message picks one with "model").
     # "sequence" (the deployed word model) is the default; experimental models are opt-in.
     intro_static: StaticPoseModel | None = None
@@ -329,6 +331,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             frames = [parse_frame(f) for f in req.frames]
             saved = store.add(req.label, req.signer, frames, req.width, req.height)
+            references.add_app_recordings(app_manifest)
         except (KeyError, TypeError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=f"Invalid recording: {exc}") from exc
         saved["label_readable"] = readable(saved["label"])
