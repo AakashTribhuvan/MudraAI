@@ -216,7 +216,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     session_dir = settings.session_dir
     # Browser diagnostics written to the events log (numbers and the camera's name; never landmarks)
-    DIAG_KEYS = ("camera_fps", "tracking_fps", "inference_ms", "delegate", "camera", "width", "height")
+    DIAG_KEYS = ("camera_fps", "tracking_fps", "inference_ms", "delegate", "gpu", "integrated_gpu", "camera", "width", "height")
     DIAG_LOG_EVERY_S = 60.0
     max_session_frames = 30 * 60 * 20  # 20 minutes at 30 fps
 

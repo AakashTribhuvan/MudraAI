@@ -76,10 +76,9 @@ exact sequence of two or more signs (HELLO + WATER -> "Hello, I need water."), o
 
 ## Setup (Windows, Chrome)
 
-1. **MUDRA**: `start_all.bat` (server on 8010, web app on 3000). Speech recognition needs the model once:
-   `pip install sherpa-onnx` (in `app/backend/.venv`, in `requirements.txt`) and the English streaming model
-   (k2-fsa, Apache-2.0) unpacked to `app/backend/var/asr_models/` (git-ignored; keep `*.int8.onnx` and `tokens.txt`):
-   default `sherpa-onnx-streaming-zipformer-en-2023-06-26` (310 MB download, 68 MB kept) from
+1. **MUDRA**: `start_all.bat` (server on 8010, web app on 3000). It installs `sherpa-onnx` (`requirements.txt`) and
+   downloads the English streaming model once with `tools/setup/download_asr_model.py` (k2-fsa, Apache-2.0, into
+   `app/backend/var/asr_models/`, git-ignored; only `*.int8.onnx` and `tokens.txt` are kept): default `sherpa-onnx-streaming-zipformer-en-2023-06-26` (310 MB download, 68 MB kept) from
    `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2`;
    the smaller `sherpa-onnx-streaming-zipformer-en-20M-2023-02-17` (128 MB download, 42 MB kept) also works
    (`MUDRA_ASR_MODEL_DIR`). Check: http://127.0.0.1:8010/speech/status.

@@ -32,7 +32,7 @@ TO_OURS = {"I_ME_MINE_MY": "I", "THANK": "THANK_YOU", "NICE": "NICE", "YOU": "YO
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--split", default="data/metadata/splits/combined_words_v4_app/test.csv")
-    ap.add_argument("--word-model", default="app/backend/models/isl_mudra_combined_v13b_bilstm")
+    ap.add_argument("--word-model", default="app/backend/models/isl_mudra_combined_v15b_bilstm")
     ap.add_argument("--static-model", default="app/backend/models/mudra_intro_static_pose_medoids_v1.npz")
     args = ap.parse_args()
 

@@ -13,16 +13,16 @@ Only body and hand landmark coordinates leave the browser, never camera images.
 **Taking over the project (people or AI models): read [`HANDOVER.md`](HANDOVER.md) first.** It is
 updated at every push and documents the architecture, interfaces, data, models and open problems.
 
-## Status (21 Oct 2026)
+## Status (23 Oct 2026)
 
 | Area | State |
 |---|---|
 | Web app (Home, Communication, Learning, Game Mode, Progress, Teach a sign, Settings; Admin pages) | Working; the avatar signs the recorded vocabulary and fingerspells other words; installable on phones (web app manifest) |
-| Recognition model | `isl_mudra_combined_v13b_bilstm`: 336 signs + "no sign" (v9 + the app's 182 recorded takes of 30 signs, incl. YES, NO and 8 phrases; your held-out takes 57/60, 0 mix-ups); v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
-| Recognition modes | SignLine words (v13b, default); Merged: v13b + 8 words from the teammate's models, each word from the most accurate model that knows it; Auto: Merged words and A-Z fingerspelling from one camera stream (`docs/TEAMMATE_MODELS.md`) |
+| Recognition model | `isl_mudra_combined_v15b_bilstm`: 339 signs + "no sign" (v9 + the app's 214 recorded takes of 33 signs, incl. YES, NO, MY, NAME and 9 phrases; your held-out takes 62/66, 0 mix-ups); v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
+| Recognition modes | SignLine words (v15b, default); Merged: v15b + 8 words from the teammate's models, each word from the most accurate model that knows it; Auto: Merged words and A-Z fingerspelling from one camera stream (`docs/TEAMMATE_MODELS.md`) |
 | Avatar signs real words | Typed or spoken words that SignLine recognises are performed from real recorded signs (landmarks of the training videos turned into arm, hand and finger rotations; an approximation). The owner's own *Teach a sign* takes are used for words without a training video. Other words are fingerspelled with the alphabet photos' hand shapes (arms placed in front of the chest) and the viewer says so; NAMASTE is built from landmarks. The old hand-made word animations are switched off (they did not show the signs) |
 | Avatar choice | Drop a rigged Mixamo `.fbx` or `.glb` into `app/frontend/src/assets/avatars/` and pick it in the dropdown on the 3D avatar; the signs are retargeted from the default Y Bot |
-| Model choice (from a teammate's branch) | Communication lets you pick the word model; each shows its measured accuracy. The default is v13b. A teammate's static-pose model is an opt-in experiment: on our test clips it got 0 of 22 shared-word signs right (v9: 22 of 22) |
+| Model choice (from a teammate's branch) | Communication lets you pick the word model; each shows its measured accuracy. The default is v15b. A teammate's static-pose model is an opt-in experiment: on our test clips it got 0 of 22 shared-word signs right (v9: 22 of 22) |
 | Barriers between words | Taught words get their own boundary so look-alike words are not mixed up; *Teach a sign* warns about inconsistent takes and look-alike words. Measured with 150 taught words: mix-ups 7.0% → 5.0%. See [`docs/SCALING_VOCABULARY.md`](docs/SCALING_VOCABULARY.md) |
 | Live recognition (Communication) | *Words*: sign start/end detection, automatic word adding, spoken sentence, "How to sign it" examples; *Spell* and *Phrase* modes (below) |
 | New words from the Teach a sign page | Work immediately (few-shot), stored for retraining |
@@ -156,7 +156,10 @@ machine install `torch` from the default index instead.
 Mudra/
 ├── README.md, HANDOVER.md        overview; full handover (architecture, interfaces, models, change log) - read first
 ├── AGENTS.md, CLAUDE.md          rules for people and AI agents working on the code
-├── start_all.bat                 Windows: creates the Python environment, installs packages, starts both servers
+├── start_all.bat                 Windows: creates the Python environment, installs packages, downloads the speech model,
+│                                 starts both servers
+├── tools/                        setup/ (speech model download, Chrome GPU setting), live_benchmark/ (camera tracking +
+│                                 recognition on this PC), meeting_tests/ (speech, voice route, extension tests); see its README
 ├── app/
 │   ├── backend/                  FastAPI server (python main.py; port MUDRA_PORT, default 8000)
 │   │   ├── main.py               entry point

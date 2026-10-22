@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Mock meeting</title>
+<style>body{font:16px system-ui;margin:0;background:#202124;color:#fff;height:100vh} .bar{position:fixed;bottom:0;left:0;right:0;height:72px;background:#111;display:flex;gap:12px;align-items:center;justify-content:center} button{font:inherit;padding:8px 16px}</style>
+<h1 style="padding:24px">Mock meeting (local test page)</h1>
+<p style="padding:0 24px">A remote participant is speaking (speech.wav, looped).</p>
+<audio id="remote" src="speech.wav" autoplay loop></audio>
+<div class="bar"><button id="mic">Mute</button><button id="leave">Leave call</button></div>
+<script>document.getElementById('mic').onclick = (e) => { e.target.textContent = e.target.textContent === 'Mute' ? 'Unmute' : 'Mute'; window.__micClicks = (window.__micClicks || 0) + 1 }</script>

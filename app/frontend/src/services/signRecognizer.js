@@ -116,6 +116,7 @@ class SignRecognizer {
       const d = results.diag
       this.ws.send(JSON.stringify({
         type: 'diag', camera_fps: d.cameraFps, tracking_fps: d.trackingFps, inference_ms: d.inferenceMs, delegate: d.delegate,
+        gpu: d.gpu, integrated_gpu: d.integratedGpu,
         camera: d.camera, width: results.width, height: results.height
       }))
     }

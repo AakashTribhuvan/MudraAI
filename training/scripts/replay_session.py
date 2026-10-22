@@ -51,7 +51,7 @@ def replay(bundle: ModelBundle, cfg: SegmenterConfig, path: Path, quiet: bool = 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("sessions", nargs="+")
-    ap.add_argument("--model", default="app/backend/models/isl_mudra_combined_v13b_bilstm")
+    ap.add_argument("--model", default="app/backend/models/isl_mudra_combined_v15b_bilstm")
     ap.add_argument("--config", default="training/configs/streaming.json")
     ap.add_argument("--set", default=None, help="JSON settings on top of --config")
     ap.add_argument("--quiet", action="store_true", help="totals only")

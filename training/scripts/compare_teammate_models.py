@@ -85,7 +85,7 @@ LOADERS = {
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--split", default="data/metadata/splits/combined_words_v4_app/test.csv")
-    ap.add_argument("--word-model", default="app/backend/models/isl_mudra_combined_v13b_bilstm")
+    ap.add_argument("--word-model", default="app/backend/models/isl_mudra_combined_v15b_bilstm")
     args = ap.parse_args()
 
     bundle = ModelBundle(project_path(args.word_model))

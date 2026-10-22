@@ -7,9 +7,9 @@
 | Field | Value |
 |---|---|
 | Document version | 12 |
-| Last updated | 2026-10-21 |
-| Last updated at commit | the commit after `110ea77`: Meet / Zoom integration, v13b, faster live tracking, tidy-up (Section 21) |
-| Deployed models | words: `app/backend/models/isl_mudra_combined_v13b_bilstm` (336 signs + `_BACKGROUND_`; v12c and older kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
+| Last updated | 2026-10-23 |
+| Last updated at commit | the commit after `b5ee2e6`: v15b, tools/, speech model download, GPU in diagnostics (Section 21) |
+| Deployed models | words: `app/backend/models/isl_mudra_combined_v15b_bilstm` (339 signs + `_BACKGROUND_`; v13b and older kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
 | Tests | 97 backend passing (`pytest app/backend/tests`, 2026-10-21: API on the deployed model, library, references, speech, SignLine Emergency; data-dependent tests skip without `data/metadata`) + 51 frontend (`npm test` in `app/frontend`: avatar, meeting, tracker, game, practice, emergency) |
 | Repository | `https://github.com/Addy-coder786/Mudra` (remote `mudra`); older pushes: `Addy-coder786/ISL_Addy` (remote `origin`) |
@@ -138,7 +138,8 @@ build a sentence and speak it.
 | **Meetings: Google Meet / Zoom** (`docs/MEETING_INTEGRATION.md`) | **Prototype, not yet tried in a real call** | Chrome extension (`app/meeting-extension`) shows the MUDRA panel in Meet / Zoom Web and sends the tab audio to local speech recognition (sherpa-onnx); the avatar signs stable phrases while people speak (first sign 1.4-1.9 s after the word in tests), signs -> local Windows voice -> VB-Cable as the meeting microphone. Tested: unit tests, a recorded-voice end to end, the extension on a mock meeting page including real tab capture (started by its shortcut with real keystrokes), the voice through VB-Cable 4.5 (installed, Test route verified, words transcribed back from CABLE Output). Not tested: a real call, a second participant. Meet add-on / Zoom App: code only, need registration |
 | Accounts and roles | **Demo only** | no server accounts or passwords; role kept in the browser; anyone can open Admin (Section 16) |
 | Game Mode | Working (local) | 70 lessons over the 314 words, real recorded examples, quizzes, XP / streak / badges in localStorage; no leaderboard (needs accounts) |
-| Recognition model **v13b** | Deployed 2026-10-21 (evening) | v12c + all 182 recorded takes (30 signs; new YES, NO, WHAT_HAPPENED, SLEEP_WELL, I_AM_NOT_DEAF, I_BATHROOM_GO, WOULD_YOU_LIKE_COFFEE, FOOD_TASTE_GOOD, MY_BAG_COLOR_BLUE, MY_MOTHER_COOKS_FOOD; more BAG), takes x6, fine-tuned from v12c: owner's held-out takes 57/60 right and **0 wrong** (v12c 35/60), other test 1,460 right / 16 wrong (v12c 1,457 / 14) |
+| Recognition model **v15b** | Deployed 2026-10-23 | v13b + all 214 recorded takes (33 signs; new MY, NAME, MY_NAME), takes x6, fine-tuned from v13b: owner's held-out takes 62/66, 0 wrong; other test 1,451 right / 15 wrong; live 12 fps benchmark 27/32, 0 wrong |
+| Recognition model **v13b** | Deployed 2026-10-21 (evening), now rollback | v12c + all 182 recorded takes (30 signs; new YES, NO, WHAT_HAPPENED, SLEEP_WELL, I_AM_NOT_DEAF, I_BATHROOM_GO, WOULD_YOU_LIKE_COFFEE, FOOD_TASTE_GOOD, MY_BAG_COLOR_BLUE, MY_MOTHER_COOKS_FOOD; more BAG), takes x6, fine-tuned from v12c: owner's held-out takes 57/60 right and **0 wrong** (v12c 35/60), other test 1,460 right / 16 wrong (v12c 1,457 / 14) |
 | Recognition model **v12c** | Deployed 2026-10-21, now rollback | v11a + all 103 recorded takes (19 words; new I_AM_FINE, I_LOVE_YOU), takes x4, fine-tuned from v11a: owner's held-out takes 35/38 right and **0 wrong** (v11a 30/38), other test 1,457 right / 14 wrong (v11a 1,459 / 13) |
 | Recognition model **v11a** | Deployed 2026-10-20, now rollback | v10c + all 93 recorded takes (17 words; new FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME), takes x6, fine-tuned from v10c: owner's held-out takes 30/34 right and **0 wrong** (no mix-ups), other test 1,459 right / 13 wrong (v10c 1,456 / 18; v9 1,461 / 14) |
 | Recognition model **v10c** | Deployed 2026-10-20, now rollback | v9 + all 47 recorded takes (9 words, new FROM, PUNE), takes x6, fine-tuned from v9: owner's held-out takes 8/18 → 14/18 (test 5/9 → 8/9), other test 1,461 → 1,456 right (-0.3 points). `compare_word_models.py` |
@@ -167,7 +168,10 @@ build a sentence and speak it.
 ├── HANDOVER.md                 this document (update at every push)
 ├── AGENTS.md / CLAUDE.md       short pointers for AI coding tools -> HANDOVER.md
 ├── README.md                   public overview, quick start, results
-├── start_all.bat               Windows launcher: creates .venv, installs deps, starts both servers
+├── start_all.bat               Windows launcher: creates .venv, installs deps, downloads the speech model, starts both servers
+├── tools/                      setup/ (download_asr_model.py, chrome_gpu_high_performance.ps1), live_benchmark/ (fake
+│                               webcam of held-out signs -> real Communicate page on this PC's GPU), meeting_tests/
+│                               (speech, VB-Cable route, extension on a mock meeting); outputs in experiments/tools/
 ├── .env.example                backend environment variables (all optional)
 ├── .githooks/pre-push          refuses pushes that do not update HANDOVER.md
 ├── app/
@@ -854,7 +858,7 @@ Other measurements:
 | v10 / v10b | 2026-10-19/20 | same, takes x10 lr 5e-4 / x4 lr 3e-4 | v10: owner's takes 15/16 but other test 1,427 / 39 wrong (rejected); v10b: 13/18, other 1,454 / 20 (v10c better) |
 | v9 cosine (push-apart) | – | `mudra_words_v9_cos.yaml`, CosFace head | worse than v9 on validation streams (e.g. desk 63.9% vs 66.7%); not deployed |
 
-v13b is deployed (2026-10-21, evening); v12c and older are kept for rollback (`MUDRA_MODEL_DIR`). Before: v12c deployed 2026-10-21. Before: v11a deployed 2026-10-20. Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
+v15b is deployed (2026-10-23); v13b and older are kept for rollback (`MUDRA_MODEL_DIR`). Before: v13b deployed 2026-10-21 (evening). Before: v12c deployed 2026-10-21. Before: v11a deployed 2026-10-20. Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
 
 ---
 
@@ -1100,6 +1104,37 @@ that need the model or landmark data skip automatically when those files are mis
 ---
 
 ## 21. Change log (newest first)
+
+### 2026-10-23 · v15b with MY, NAME, MY_NAME; tools/ in the repo; speech model download (pushed after `b5ee2e6`)
+- Owner recorded MY (10), NAME (10), MY_NAME (12) takes (now 214 takes / 33 signs). As custom (few-shot) words they
+  took short fragments in the live benchmark (0.8-1.9 s, 14-19 frames at 10-13 fps, similarity ~0.77; also once in
+  the owner's own session). Splits `combined_words_v9_app_r4/_r6`, configs `mudra_words_v15a/b.yaml` (from v13b).
+  `compare_word_models.py --models v13b v15a v15b --split combined_words_v9_app_r4 --bank`: owner's held-out takes
+  v13b+bank 63/66, v15a / v15b 62/66, all 0 wrong; other test 1,460 / 16 (v13b), 1,453 / 18 (v15a), 1,451 / 15 (v15b).
+  Live A/B at 12 fps (fake webcam): v13b 20/24, v15b 27/32 signs right, 0 wrong for both. v15b deployed (the three
+  words are model classes, no longer only custom words); v13b kept for rollback, v15a export deleted.
+- Today's live benchmark on the RTX varied from 45 to 68 ms per frame (yesterday 17-24 ms); recognition followed the
+  frame rate (8/8 at 21 fps, 4-5/8 at 11-14 fps). The owner's Chrome had still not been restarted since the GPU
+  setting (21 Oct 19:43).
+- `tools/` (new, see its README): `setup/download_asr_model.py` (run by `start_all.bat` when the model is missing),
+  `setup/chrome_gpu_high_performance.ps1` (with `-Undo`), `live_benchmark/` (fake webcam, live bench, score, GPU and
+  camera probes), `meeting_tests/` (speech WAVs, ASR comparison, meeting panel, VB-Cable route, extension tests with a
+  mock meeting). Ported from the scratchpad with repository-relative paths; outputs in `experiments/tools/`.
+  Checked from the repo: the extension test on the mock meeting and the live benchmark ran end to end.
+- `test_models.py`: the merged-mode test no longer assumes which words our model lacks (NAME is now ours).
+- Tests: backend 97 passed, frontend 51 passed, build OK.
+
+### 2026-10-22 · "Signs not recognised": cause is the frame rate, not the model (pushed after `b5ee2e6`)
+- The owner's session at 09:17: 146 / 61 ms per frame, 5.5-7 frames/s at the server, 1 of 10 signs recognised
+  (HELLO). Chrome had been running since 21 Oct 19:43, before the "High performance" GPU setting (applies only to a
+  newly started Chrome), so it still drew with the Intel UHD; the webcam delivered 5-15 fps (dim light).
+- Live benchmark at 12 fps (fake webcam, RTX): 5/8 held-out signs vs 8/8 at 25 fps. Stream test of v13b (test split,
+  correct %): the owner's recordings 73.3 / 80.0 / 86.7 at 8 / 12 / 25 fps, 0 wrong.
+- Tried: v14a (low-fps training 30% -> 60%, `mudra_words_v14a.yaml`): no better at any frame rate, other test 1,455 /
+  18 vs 1,460 / 16; not adopted, export deleted. The webcam (ACER HD) offers manual exposure, but Windows refuses it
+  from the browser ("setPhotoOptions failed"), so light is the only way to its 30 fps.
+- Changed: the client diagnostics now include the browser GPU (`gpu`, `integrated_gpu` in `client_diag`), so the next
+  session shows whether Chrome uses the RTX.
 
 ### 2026-10-21 · Live tracking: 2.5x faster on the owner's laptop, no duplicate frames, no start-up freeze (pushed after `110ea77`)
 - Owner: improve fps, body / hand / finger tracking, lag and recognition. Evidence first: the owner's sessions logged

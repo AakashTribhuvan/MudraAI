@@ -1,0 +1,15 @@
+# v15b candidate: v13b + every recorded take (214 takes / 33 signs on 2026-10-23; new: MY, NAME, MY_NAME - as custom
+# words they took other signs in the live benchmark), each training take listed 6 times. Starts from v13b's weights.
+#     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v9_app_r6 --train-repeat 6
+#     python training/scripts/train.py --config mudra_words_v15b.yaml --name combined_v15b
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v13b_20261021-183554
+
+data:
+  split_dir: data/metadata/splits/combined_words_v9_app_r6
+
+train:
+  epochs: 60
+  warmup_epochs: 2
+  patience: 25
+  lr: 0.0001

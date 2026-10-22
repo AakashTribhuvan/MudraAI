@@ -1,0 +1,19 @@
+# v14a (not adopted, 2026-10-22: no better than v13b at 8 / 12 / 25 fps, other test 1,455 / 18 vs 1,460 / 16): v13b on the same data with more low-frame-rate training. The owner's webcam delivers 5-15 fps in
+# dim light (2026-10-22 log); in a 12 fps live benchmark v13b got 5/8 held-out signs (25 fps: 8/8). Low-fps clips
+# 30% -> 60% of training samples. Starts from v13b's weights.
+#     python training/scripts/train.py --config mudra_words_v14a.yaml --name combined_v14a
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v13b_20261021-183554
+
+data:
+  split_dir: data/metadata/splits/combined_words_v8_app_r6
+
+augment:
+  desk_share: 0.5
+  low_fps_prob: 0.6
+
+train:
+  epochs: 40
+  warmup_epochs: 2
+  patience: 20
+  lr: 0.0001

@@ -78,7 +78,8 @@ def test_merged_mode_adds_only_words_our_model_lacks(client):
     assert added == set(models["merged"]["words"]) and "MYSELF" in added and not added & ours
     by_model = models["merged"]["words_by_model"]
     assert not set(by_model["isl500_video"]) & set(by_model.get("common_word_video", []))  # one model per word
-    assert {"HOW", "NAME"} <= set(models["merged"]["excluded_words"])  # static models: below the accuracy bar
+    excluded = set(models["merged"]["excluded_words"])  # static models: below the accuracy bar, only words we lack
+    assert "HOW" in excluded and not excluded & ours
     assert models["auto"]["letters"] and models["auto"]["words"] == models["merged"]["words"]
 
 
