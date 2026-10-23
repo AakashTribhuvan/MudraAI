@@ -6,9 +6,9 @@
 
 | Field | Value |
 |---|---|
-| Document version | 12 |
-| Last updated | 2026-10-20 |
-| Last updated at commit | `c61dcd4` plus the accompanying handover follow-up for the experimental model selector and camera-source controls |
+| Document version | 17 |
+| Last updated | 2026-10-23 |
+| Last updated at commit | Local OAuth success checkpoint after `8a80853`; not committed |
 | Deployed models | words: `app/backend/models/isl_mudra_combined_v11a_bilstm` (324 words + `_BACKGROUND_`; v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
 | Tests | Current check: 21 frontend passing and 3 static-pose tests passing. Full backend tests are blocked by this machine's Torch DLL policy (`WinError 4551`) and missing `tensorboard`; full Ruff checks report existing issues in the upstream files. Changed backend files pass Ruff. |
@@ -170,7 +170,8 @@ build a sentence and speak it.
 ├── app/
 │   ├── backend/
 │   │   ├── main.py             entry point (uvicorn; port from MUDRA_PORT, default 8000)
-│   │   ├── requirements.txt    pinned Python deps (backend + training share one venv; CUDA 12.8 torch)
+│   │   ├── requirements.txt    full pinned Python deps for backend + training (CUDA 12.8 torch)
+│   │   ├── requirements-runtime.txt  lighter CPU inference/API runtime for launching the app
 │   │   ├── mudra_api/
 │   │   │   ├── app.py          FastAPI factory: /health /labels /model /reference /predict /recordings /stream
 │   │   │   ├── settings.py     Settings dataclass from MUDRA_* environment variables
@@ -191,7 +192,7 @@ build a sentence and speak it.
 │   │   ├── alembic.ini, .env.example   migrations config; SIGNLINE_EM_* variables
 │   │   ├── var/                local emergency database + generated demo responder password (git-ignored)
 │   │   └── tests/              test_api.py (API, streaming, recordings, references), emergency/ (29 tests), conftest.py
-│   └── frontend/               React 18 + Vite 6 + Tailwind 3 + Three.js
+│   └── frontend/               React 18 + Vite 6 + Tailwind 3 + Three.js; Electron shell in electron/
 │       ├── public/models/      hand_landmarker.task, pose_landmarker_lite.task, face_landmarker.task
 │       ├── public/wasm/        MediaPipe Tasks Vision WASM runtime (served locally)
 │       ├── public/ybot.glb     avatar model; public/assets/mudra-intro.mp4 intro video
@@ -263,8 +264,9 @@ build a sentence and speak it.
 
 Not committed (see `.gitignore`): `node_modules/`, `.venv/`, all datasets (`data/raw/`, `data/external/`,
 `data/processed/`, `data/metadata/` manifests and split CSVs), root `/experiments/` (training runs, logs,
-reports), `training/assets/mediapipe/*.task`, `.env`. The repository contains code, configs, docs and
-the deployed model only.
+reports), `training/assets/mediapipe/*.task`, `.env`, and the local camera-prototype dataset and
+tunnel state. The repository contains the SignLine app, training code, docs, deployed models and the
+optional `tools/phone-camera-prototype` utilities; prototype signer media stays local.
 
 ---
 
@@ -897,6 +899,11 @@ v11a is deployed (2026-10-20); v10c and v9 are kept for rollback (`MUDRA_MODEL_D
 
 Priority order. Each item says what is known and what to do next.
 
+0. **Launcher/runtime setup:** an old `.deps_ok` timestamp can survive after Python or npm packages have
+   been removed. `start_all.bat` now checks the actual backend imports and Electron toolchain and reinstalls
+   the CPU inference runtime when needed. Electron still uses the primary FastAPI API; the phone-webcam
+   prototype's camera picker is available through the same browser camera selector when Camo is installed.
+
 1. **Live recognition fails on the developer's webcam** (critical). Stream log 2026-10-07: 11 signs,
    0 recognised (9 `no_sign` with background ≈0.96-0.997, 2 `uncertain`); 6 of 11 ran to the 6 s cap
    (`max_length`), i.e. the hands never rested long enough to end the sign; tracking ~6.5 fps despite
@@ -924,6 +931,25 @@ Priority order. Each item says what is known and what to do next.
    its real size (head to below the hips plus signing space, re-fitted on resize); badge renamed "SignLine avatar". Unused old files: `HomePage.jsx`, `components/home/*`, `Navbar`, `Footer`, `IntroLoader`,
    `public/assets/mudra-intro.mp4` (remove after the owner agrees). Only the screens were checked in screenshots;
    no screen-reader or full WCAG audit has been done.
+1g. **Judges Google OAuth is External / In production (2026-10-23).**
+   The owner changed the audience in Google Cloud Console after an initial attempt was blocked for the active
+   personal Gmail identity. A refreshed Audience page confirms **External** and **In production**. The owner
+   accepted the current legal-page drafts for this temporary demo; saved Branding links are the stable Worker
+   `/welcome`, `/legal/privacy`, and `/legal/terms` URLs. The app name, support email, authorized domain, and
+   developer contact were already present. Verification Center says data-access verification is not required
+   because the app requests no sensitive or restricted scopes (`openid email profile`). Branding status says
+   branding is not being shown to users and can be verified separately. No logo was uploaded.
+   Popup sign-in is implemented in `SignInPage.jsx` and the Google callback. A live sign-in succeeded
+   through the stable Worker on 2026-10-23. Root cause of the earlier callback failure was the PC clock being
+   about three hours behind public time servers; Google rejected the ID token's time claims. The owner corrected
+   the clock manually, and ID-token verification now tolerates up to 60 seconds of clock skew while still
+   verifying the signature, audience, nonce, and verified email. Windows Time is running but has no peer
+   configured, so recheck the system clock if OAuth time-validation errors recur.
+   The stable Worker and current Quick Tunnel both returned HTTP 200 for `/health`; the active temporary
+   Quick Tunnel is `https://landing-relations-dozen-cables.trycloudflare.com`. Use the stable Worker URL for
+   app testing and OAuth; Quick Tunnel URLs are temporary and can change when the tunnel restarts.
+   OAuth values remain in ignored `app/backend/.env`; never copy them into docs or chat. Rotate the client
+   secret after the demo if possible; rotation was not performed.
 1c. **Accuracy for new people is unmeasured** (audit 2026-10-13). No dataset has signer IDs and the
    test split shares signers and sessions with training. Record several people on the Record page
    and keep one or two entirely out of training as the test set.
@@ -976,6 +1002,18 @@ training), PyTorch 2.11 + CUDA 12.8, NVIDIA RTX 5060 Laptop GPU (sm_120), Node 2
 `npm install` only when needed, starts both servers). Then open http://localhost:3000 →
 Communicate → Start Camera.
 
+**Desktop shell:** `npm run electron:dev` in `app/frontend` opens the Vite frontend in Electron; the FastAPI
+backend must still be started separately. `npm run build:electron` makes a file-based frontend bundle for
+local Electron review (`npx electron .`). Electron Builder targets and mobile/PWA guidance are in
+`docs/DESKTOP_AND_MOBILE.md`. Electron does not run on phones; mobile installs use the PWA or a future
+Capacitor wrapper. No installers are generated by these development commands.
+
+**Quick start (Windows):** run `start_application.bat` for Electron or `start_all.bat` for the browser. The
+launchers check Python runtime imports and frontend tool packages instead of trusting a timestamp marker
+alone. They install `requirements-runtime.txt` and CPU PyTorch for app use; the full `requirements.txt`
+remains for training and CUDA development. The runtime venv is separate from the training environment and
+uses Python 3.14 when available, then 3.13/3.12 to match the trained model support packages.
+
 **Manual start:**
 
 ```powershell
@@ -983,8 +1021,8 @@ cd app\backend; .venv\Scripts\python.exe main.py                 # API on :8000 
 cd app\frontend; npm run dev -- --host 127.0.0.1 --port 3000     # app on :3000 (VITE_API_URL to point elsewhere)
 ```
 
-**Fresh clone:** `python -m venv app/backend/.venv`, `pip install -r app/backend/requirements.txt`
-(installs `mudra_ml` editable), `npm install` in `app/frontend`. The app runs with the committed
+**Fresh clone:** run `start_application.bat` to create the Python environment and install app runtime
+packages, then install the committed frontend dependencies. The app runs with the committed
 model; the "How to sign it" examples (`/reference`) and the data-dependent tests need the local
 `data/metadata/` and `data/processed/` folders. Training needs those plus the MediaPipe `.task`
 files in `training/assets/mediapipe/` from
@@ -1078,6 +1116,27 @@ that need the model or landmark data skip automatically when those files are mis
 ---
 
 ## 21. Change log (newest first)
+
+### 2026-10-23 · OAuth production and sign-in success checkpoint (not committed)
+- Deployed the existing Cloudflare Worker and verified its health response and OAuth-start redirect through
+  the stable URL. The Google request uses the registered Worker callback; no interactive OAuth callback or
+  app session was verified. Later, the owner changed Audience to **External / In production**. Saved the
+  owner-approved temporary home/privacy/terms URLs in Google Branding. Verification Center confirms data
+  access verification is not required for the current non-sensitive scopes; branding is not currently shown.
+- Implemented popup sign-in and verified the frontend production build and Python syntax. The first live
+  callbacks failed because the PC clock was about three hours behind public time servers; after the owner
+  corrected it, a live sign-in and session succeeded. Backend ID-token verification now allows 60 seconds of
+  clock skew. Stable Worker and current Quick Tunnel `/health` checks both return HTTP 200. The active Quick
+  Tunnel is temporary; use the stable Worker URL for OAuth. No model or accuracy changes.
+
+### 2026-10-22 · local workspace consolidation (not committed)
+- Kept `Mudra` as the single SignLine app/training root. Added missing training scripts, configs,
+  docs and local research data from `MudraTraining` without replacing newer canonical runtime files.
+- Moved the Camo/OpenCV prototype and its local media under `tools/phone-camera-prototype/`;
+  removed its duplicate frontend from the consolidated layout. Its launcher now runs locally by
+  default; the public tunnel is opt-in because it exposes live camera access.
+- Kept the deployed v11a recognizer as the default. The prototype static-pose models remain
+  experimental. No new model evaluation was run for this consolidation.
 
 Add one entry per push: date · commits · what changed · why · measured effect (split).
 

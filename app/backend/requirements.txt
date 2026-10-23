@@ -6,6 +6,8 @@
 fastapi==0.142.2
 uvicorn[standard]==0.54.0
 pydantic==2.13.5
+google-auth[requests]==2.62.0
+python-dotenv==1.2.4
 
 # SignLine Emergency (database + migrations)
 SQLAlchemy==2.1.4

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3efe7">
+    <meta name="description" content="A local MUDRA sign-model testing dashboard.">
+    <title>MUDRA — Sign model testing</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="MUDRA model testing home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-name">MUDRA<span class="brand-dot">.</span></span>
+        <span class="brand-divider"></span>
+        <span class="brand-section">SIGN MODEL TESTING</span>
+      </a>
+      <div class="topbar-meta">
+        <span class="local-lock"><span class="lock-icon">●</span> LOCAL SESSION</span>
+        <span class="version-tag">CAMERA SETUP</span>
+        <button id="flip-camera" class="flip-camera" data-flip-camera type="button" aria-label="Flip camera image horizontally">
+          Flip camera
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="camera-setup" id="camera-setup" aria-labelledby="setup-title" hidden>
+        <div class="setup-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span> BEFORE YOU START</p>
+          <h1 id="setup-title">Choose your<br><em>camera.</em></h1>
+          <p>Select a camera source, check its live preview, then start the tracker. Video stays on
+            this computer.</p>
+          <label for="camera-select">CAMERA SOURCE</label>
+          <select id="camera-select"></select>
+          <span class="setup-message" id="setup-message" aria-live="polite">Finding available cameras…</span>
+          <button class="primary-button" id="start-tracking" type="button" disabled>Start tracking <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="setup-preview">
+          <div class="video-heading">
+            <div><p class="card-kicker">LIVE CAMERA CHECK</p><h2 id="setup-camera-name">Waiting for a camera</h2></div>
+            <span class="live-pill"><i></i> PREVIEW</span>
+          </div>
+          <div class="video-stage setup-video-stage">
+            <img id="setup-camera-feed" data-stream-src="/stream.mjpg" alt="Live preview of the selected camera">
+            <div class="dynamic-video-placeholder" id="setup-placeholder">
+              <strong>Camera preview will appear here</strong>
+              <span>Select an available camera source.</span>
+            </div>
+          </div>
+          <p class="privacy-note">Choose the highest-resolution live feed for your phone camera.</p>
+        </div>
+      </section>
+
+      <div id="model-workspaces" hidden>
+        <div class="model-toolbar">
+          <nav class="view-tabs section-tabs" role="tablist" aria-label="Pose model">
+            <button class="view-tab is-active" id="static-section-tab" type="button" role="tab"
+              aria-selected="true" aria-controls="static-sign-section" data-section="static-sign-section">Static Pose Model</button>
+            <button class="view-tab" id="intro-section-tab" type="button" role="tab"
+              aria-selected="false" aria-controls="static-sign-section" data-section="static-sign-section">Expanded Intro Model</button>
+            <button class="view-tab" id="dynamic-section-tab" type="button" role="tab"
+              aria-selected="false" aria-controls="dynamic-sign-section" data-section="dynamic-sign-section">Dynamic Pose Model</button>
+          </nav>
+          <div class="active-camera">
+            <span id="active-camera-name">Camera selected</span>
+            <button id="stop-tracking" type="button">Change camera / stop</button>
+          </div>
+        </div>
+
+        <section id="static-sign-section" role="tabpanel" aria-labelledby="static-section-tab">
+          <section class="intro">
+            <div class="intro-copy">
+              <p class="eyebrow"><span class="eyebrow-line"></span> STATIC-POSE MODEL</p>
+              <h1>Hold a pose.<br><em>Check the match.</em></h1>
+              <p class="intro-description">Tests still-pose samples only. Source labels are experimental
+                and are not verified ISL glosses.</p>
+            </div>
+            <div class="model-count-card">
+              <span class="session-label">STATIC MODEL VOCABULARY</span>
+              <strong><span id="static-trained-count">—</span> trained labels</strong>
+              <span><b id="static-live-count">—</b> currently live-eligible</span>
+              <small id="static-held-count"></small>
+              <small>Artifact: training_data/models/static_pose_medoids.npz</small>
+            </div>
+          </section>
+
+          <section class="workspace" aria-label="Static pose model testing">
+            <div class="main-column">
+              <div class="live-layout">
+                <article class="video-card">
+                  <div class="video-heading">
+                    <div><p class="card-kicker">LIVE STATIC-POSE TEST</p><h2>Camera &amp; tracking</h2></div>
+                    <span class="live-pill"><i></i> LIVE</span>
+                  </div>
+                  <div class="video-stage">
+                    <img id="camera-feed" data-stream-src="/stream.mjpg" alt="Live camera preview with tracking overlays">
+                    <div class="video-placeholder" id="video-placeholder">
+                      <strong>Waiting for tracking</strong><span>Start the camera session to see the live feed.</span>
+                    </div>
+                    <aside class="sign-reference-panel" aria-label="Static sign preview samples">
+                      <div class="reference-panel-heading">
+                        <strong>STATIC SIGN PREVIEWS</strong>
+                        <small><span id="reference-word-count">0</span> labels</small>
+                      </div>
+                      <div id="sign-reference-list" class="sign-reference-list">
+                        <span class="reference-empty">Loading model labels…</span>
+                      </div>
+                    </aside>
+                    <div class="video-state-chip" id="video-state-chip">WAITING</div>
+                    <div class="video-corner">LOCAL TRACKING</div>
+                  </div>
+                  <div class="video-footer">
+                    <div class="legend">
+                      <span><i class="legend-box legend-start"></i>Candidate</span>
+                      <span><i class="legend-box legend-active"></i>In action</span>
+                      <span><i class="legend-box legend-static"></i>Static hold</span>
+                    </div>
+                    <span class="privacy-note" id="camera-status">Live preview · not recorded</span>
+                  </div>
+                </article>
+
+                <div class="readouts">
+                  <article class="readout-card readout-primary">
+                    <span class="readout-label">BOUNDARY STATE</span>
+                    <div class="readout-value"><span id="activity-state">IDLE</span><small id="activity-mode">—</small></div>
+                    <span class="readout-caption" id="state-caption">Waiting for a clear signing movement</span>
+                  </article>
+                  <article class="readout-card">
+                    <span class="readout-label">SEGMENT TIME</span>
+                    <div class="readout-value"><span id="segment-time">0.0</span><small>SEC</small></div>
+                    <span class="readout-caption">Static tracking refreshes every 5 seconds</span>
+                  </article>
+                  <article class="readout-card">
+                    <span class="readout-label">WRIST ACTIVITY</span>
+                    <div class="readout-value"><span id="wrist-speed">0.00</span><small>WIDTHS / SEC</small></div>
+                    <span class="readout-caption" id="raised-status">Hands not raised</span>
+                  </article>
+                  <article class="readout-card">
+                    <span class="readout-label">TRACKING QUALITY</span>
+                    <div class="readout-value"><span id="hands-count">0</span><small>HANDS · <b id="fps-value">0</b> FPS</small></div>
+                    <span class="readout-caption" id="resolution-value">Camera size pending</span>
+                  </article>
+                  <article class="readout-card readout-recognition">
+                    <span class="readout-label">STATIC-POSE MATCH</span>
+                    <div class="readout-value"><span id="recognition-label">OFF</span></div>
+                    <span class="readout-caption" id="recognition-caption">Hold a tracked pose to test.</span>
+                  </article>
+                </div>
+              </div>
+            </div>
+            <aside class="control-card" aria-labelledby="controls-title">
+              <div class="control-heading"><div><p class="card-kicker">TRACKER TUNING</p><h2 id="controls-title">Boundary controls</h2></div></div>
+              <div class="control-list">
+                <label class="slider-control" for="start_hold"><span class="slider-title">Start confirmation <output id="start_hold_value">0.15 s</output></span><input id="start_hold" type="range" min="0.05" max="1" step="0.05"><span class="slider-help">How long activity must continue before a sign begins.</span></label>
+                <label class="slider-control" for="stop_hold"><span class="slider-title">Rest confirmation <output id="stop_hold_value">0.70 s</output></span><input id="stop_hold" type="range" min="0.2" max="2" step="0.05"><span class="slider-help">Delay ending across short pauses.</span></label>
+                <label class="slider-control" for="mode_hold"><span class="slider-title">Mode change delay <output id="mode_hold_value">0.45 s</output></span><input id="mode_hold" type="range" min="0.1" max="1.5" step="0.05"><span class="slider-help">Debounce static/dynamic activity mode.</span></label>
+                <label class="slider-control" for="movement_threshold"><span class="slider-title">Movement sensitivity <output id="movement_threshold_value">1.00</output></span><input id="movement_threshold" type="range" min="0.2" max="4" step="0.1"><span class="slider-help">Higher values ignore small wrist shifts.</span></label>
+                <label class="slider-control" for="raised_below_shoulder"><span class="slider-title">Lower torso signing zone <output id="raised_below_shoulder_value">1.00</output></span><input id="raised_below_shoulder" type="range" min="0" max="2" step="0.05"><span class="slider-help">How far below shoulder level a wrist may be and still count as active signing.</span></label>
+              </div>
+              <div class="controls-footer"><span id="settings-status" aria-live="polite">Settings ready</span><button id="reset-settings" type="button">Reset recommended values ↺</button></div>
+            </aside>
+          </section>
+        </section>
+
+        <section class="dynamic-sign-section" id="dynamic-sign-section"
+          role="tabpanel" aria-labelledby="dynamic-section-tab" hidden>
+          <section class="intro dynamic-intro">
+            <div class="intro-copy">
+              <p class="eyebrow"><span class="eyebrow-line"></span> DYNAMIC-POSE MODEL</p>
+              <h1>Follow the motion.<br><em>Test separately.</em></h1>
+              <p class="intro-description">Dynamic signs require ordered motion across multiple frames.
+                This model is separate from the still-pose classifier.</p>
+            </div>
+            <div class="model-count-card dynamic-count-card">
+              <span class="session-label">DYNAMIC MODEL VOCABULARY</span>
+              <strong><span id="dynamic-trained-count">0</span> trained labels</strong>
+              <span>0 currently live-eligible</span>
+              <small>Dynamic pose model is not trained.</small>
+            </div>
+          </section>
+          <section class="dynamic-test-layout">
+            <article class="learning-card dynamic-status-card">
+              <div class="video-heading"><div><p class="card-kicker">MODEL STATUS</p><h2>Dynamic signs are not trained</h2></div><span class="version-tag">0 LABELS</span></div>
+              <p class="dynamic-description">There is no dynamic classifier or trained sign vocabulary yet. Live camera and hand-motion diagnostics are shown for testing only; no dynamic word prediction is produced.</p>
+              <div class="dynamic-model-empty" id="dynamic-model-empty">No dynamic sign preview samples yet.</div>
+            </article>
+            <article class="learning-card dynamic-live-card">
+              <div class="video-heading"><div><p class="card-kicker">LIVE DYNAMIC-POSE TEST</p><h2>Motion diagnostics only</h2></div><span class="live-pill"><i></i> TRACKER</span></div>
+              <div class="video-stage dynamic-video-stage">
+                <img id="dynamic-camera-feed" data-stream-src="/stream.mjpg" alt="Live camera preview with pose and hand tracking diagnostics" hidden>
+                <div class="dynamic-video-placeholder" id="dynamic-video-placeholder"><strong>Start tracking to see the camera</strong><span>Dynamic sign prediction is not trained.</span></div>
+                <div class="video-state-chip">NO DYNAMIC PREDICTIONS</div>
+              </div>
+              <p class="dynamic-note" id="dynamic-tracking-state">Waiting for camera tracking.</p>
+            </article>
+          </section>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

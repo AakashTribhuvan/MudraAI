@@ -1,7 +1,8 @@
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 
-const WASM_PATH = '/wasm'
-const MODEL_PATH = '/models/face_landmarker.task'
+const ASSET_BASE = import.meta.env.BASE_URL
+const WASM_PATH = `${ASSET_BASE}wasm`
+const MODEL_PATH = `${ASSET_BASE}models/face_landmarker.task`
 const TARGET_FPS = 5 // facial cues change slowly; keep the GPU for hand and body tracking
 const SLOW_FPS = 1 // while hand tracking cannot keep up with the camera
 

@@ -8,6 +8,9 @@ import logging
 import os
 
 from mudra_api.app import create_app
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 app = create_app()

@@ -15,7 +15,7 @@ const DOCS = {
     body: [
       ['What SignLine is', 'SignLine is a prototype that tries to recognise Indian Sign Language (ISL) words from a webcam and turn them into text and speech, and that helps people learn signs. It is provided by ' + OWNER + '.'],
       ['No guarantee of correctness', 'Recognition makes mistakes, especially for people and signing styles it has not seen. Never rely on SignLine in an emergency, for medical, legal or safety-critical communication, or as a replacement for a qualified interpreter.'],
-      ['Demo accounts', 'Sign-in is a demonstration: there are no real accounts, passwords are not checked or stored, and anyone can open either the User or the Admin area. Do not enter information you want protected.'],
+      ['Sign-in', 'SignLine uses Google OpenID Connect to verify your email address. It creates a signed browser session but does not keep a central account directory. Admin access is limited to addresses configured by the SignLine team. SignLine does not receive your Google password.'],
       ['Your recordings', 'If you use Teach a sign, the hand and body landmark coordinates of your recording (not video) and the name you enter are stored on the SignLine server so the word can be recognised and used to improve the model. Only record yourself, and only with your consent.'],
       ['Acceptable use', 'Do not record other people without their consent, and do not use SignLine to harm, harass or identify anyone.'],
       ['Changes', 'These terms may change while SignLine is a prototype. Governing law and jurisdiction: [to be provided].'],
@@ -28,9 +28,9 @@ const DOCS = {
       ['Camera', 'Your camera video stays in your browser. MediaPipe models run on your device to find hand, body and face landmarks. No camera image or video is uploaded or stored.'],
       ['What is sent to the SignLine server', 'For live recognition, the coordinates of your hand landmarks and 33 body landmarks (which include points of the face such as the nose, eyes, ears and mouth) are sent to the SignLine server for each camera frame. The server keeps them only in memory while recognising a sign, unless session saving is switched on by the operator (off by default, and only with your consent).'],
       ['What the server stores', 'A log of each recognised sign (time, result, confidence, frame rate, and the camera’s model name, but no landmarks) for diagnosing problems. Recordings you make on Teach a sign (landmark coordinates plus the name you enter), until you delete them.'],
-      ['What your browser stores', 'Your demo name and role, Game Mode progress, practice history, accessibility and camera preferences, and the name used for recordings are kept in your browser’s local storage. See Cookies and storage.'],
+      ['What your browser stores', 'Game Mode progress, practice history, accessibility and camera preferences, and the name used for recordings are kept in your browser’s local storage. SignLine also uses a secure, HTTP-only session cookie after sign-in.'],
       ['Facial cues', 'Facial expression cues are computed on your device and are not sent to the server or stored.'],
-      ['Third parties', 'The app loads its fonts from Google Fonts, so your browser contacts Google’s servers when SignLine opens. No analytics, advertising or tracking services are used.'],
+      ['Third parties', 'Google receives your browser’s Google sign-in request when you choose Continue with Google. The app also loads its fonts from Google Fonts. No analytics, advertising or tracking services are used.'],
       ['Retention and deletion', 'Recordings stay on the server until deleted (Teach a sign page or Admin). The sign log is kept for diagnosis [retention period: to be decided]. Browser data stays until you clear it or reset your progress in Settings.'],
       ['Your rights', 'See Your data rights.'],
     ],
@@ -47,15 +47,15 @@ const DOCS = {
   cookies: {
     title: 'Cookies and storage',
     body: [
-      ['Cookies', 'SignLine does not set cookies.'],
-      ['Local storage', 'SignLine uses your browser’s local storage for: demo sign-in (signline_demo_session), Game Mode progress (signline_progress_v1:<name>), practice history (mudra.practice.sessions.v1), the recorder name (mudra.recorder.signer), accessibility settings (mudra_font_size, mudra_high_contrast, mudra_reduced_motion, mudra_speech_rate), and camera and speech preferences. All of it is needed for the features you use; none of it is used for tracking.'],
+      ['Cookies', 'SignLine uses a secure, HTTP-only session cookie for authentication and a short-lived HTTP-only cookie while completing Google sign-in.'],
+      ['Local storage', 'SignLine uses your browser’s local storage for Game Mode progress (signline_progress_v1:<name>), practice history (mudra.practice.sessions.v1), the recorder name (mudra.recorder.signer), accessibility settings (mudra_font_size, mudra_high_contrast, mudra_reduced_motion, mudra_speech_rate), and camera and speech preferences. None of it is used for tracking.'],
       ['Clearing it', 'Clear the site’s data in your browser settings, or reset Game Mode progress in Settings.'],
     ],
   },
   'data-rights': {
     title: 'Your data rights',
     body: [
-      ['There are no accounts', 'Because sign-in is a demo, SignLine holds no account about you. Browser data can be removed by you at any time (see Cookies and storage).'],
+      ['Sign-in session', 'SignLine uses your verified Google account email to identify your current session. It does not keep a central account directory. Sign out to clear the session cookie. Browser data can be removed by you at any time (see Cookies and storage).'],
       ['Recordings', 'Delete any recording on the Teach a sign page. An administrator can also delete recordings in Admin → Records.'],
       ['Requests', 'To ask what server data relates to you or to have it deleted, contact ' + CONTACT + '. [Applicable law, e.g. India’s Digital Personal Data Protection Act 2023, and response times: to be confirmed by the owner.]'],
     ],

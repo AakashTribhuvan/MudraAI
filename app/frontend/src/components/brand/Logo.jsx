@@ -6,7 +6,7 @@ export default function Logo({ size = 40, withName = true, className = '', nameC
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <img
-        src="/brand/signline-mark.png"
+        src={`${import.meta.env.BASE_URL}brand/signline-mark.png`}
         alt={withName ? '' : 'SignLine'}
         width={Math.round(size * 0.82)}
         height={size}

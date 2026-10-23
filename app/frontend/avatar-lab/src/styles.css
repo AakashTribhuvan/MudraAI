@@ -1,0 +1,70 @@
+:root { color: #f4f2ff; background: #11121d; font-family: 'Segoe UI', system-ui, sans-serif; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 340px; min-height: 100vh; background: radial-gradient(ellipse at 76% 8%, #3d3262 0, #1c1b30 31%, #11121d 74%); }
+button, textarea, select, input { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .48; }
+.lab-shell { width: min(1440px, calc(100% - 44px)); margin: 0 auto; padding: 42px 0 24px; }
+.lab-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 30px; margin-bottom: 28px; }
+.eyebrow { margin: 0 0 8px; color: #b8a7ff; font-size: 10px; font-weight: 700; letter-spacing: .17em; }
+h1, h2 { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+h1 { font-size: clamp(27px, 3vw, 38px); letter-spacing: -.04em; }
+h1 span { color: #bbadff; }
+h2 { font-size: 19px; }
+.intro { max-width: 670px; margin: 10px 0 0; color: #b9b8cd; font-size: 14px; line-height: 1.65; }
+.api-badge { min-width: 205px; display: grid; grid-template-columns: 10px 1fr; column-gap: 9px; align-items: center; padding: 12px 14px; border: 1px solid #39384c; border-radius: 14px; background: #1a1b2a; font-size: 12px; font-weight: 700; }
+.api-badge i { width: 8px; height: 8px; border-radius: 50%; background: #eab46e; }
+.api-badge.online i { background: #64d8a6; }
+.api-badge.offline i { background: #ff7881; }
+.api-badge small { grid-column: 2; margin-top: 4px; color: #aaa9be; font-size: 10px; font-weight: 500; }
+.lab-grid { display: grid; grid-template-columns: minmax(320px, .82fr) minmax(440px, 1.18fr); gap: 18px; align-items: stretch; }
+.card { min-width: 0; overflow: hidden; border: 1px solid #353449; border-radius: 22px; background: linear-gradient(145deg, rgba(32,32,50,.96), rgba(25,25,39,.96)); box-shadow: 0 20px 70px #0003; }
+.controls { padding: 22px; }
+.section-heading, .stage-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.counter { padding: 7px 9px; border: 1px solid #4a4468; border-radius: 99px; color: #c8bcff; font-size: 10px; white-space: nowrap; }
+form { margin-top: 22px; }
+label { display: block; margin-bottom: 8px; color: #d8d6e9; font-size: 12px; font-weight: 600; }
+textarea, select { width: 100%; color: #f8f7ff; border: 1px solid #44435b; border-radius: 12px; outline: none; background: #151622; }
+textarea { padding: 13px 14px; line-height: 1.55; resize: vertical; }
+textarea:focus, select:focus { border-color: #9c86f5; box-shadow: 0 0 0 3px #9c86f528; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.actions button, .chips button { min-height: 36px; padding: 0 12px; border: 1px solid #47455f; border-radius: 10px; color: #e7e4f5; background: #252438; font-size: 11px; font-weight: 700; }
+.actions button.primary { border-color: #9a82f4; color: #171326; background: #b6a4ff; }
+.actions button:hover:not(:disabled), .chips button:hover { border-color: #9c86f5; }
+.examples { margin: 20px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chips button { min-height: 30px; padding: 0 9px; color: #c8c5dc; font-size: 10px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+.settings-row label { margin: 0; }
+.settings-row select { width: min(62%, 235px); padding: 9px 10px; font-size: 11px; }
+.speed-row { display: block; }
+.speed-row label { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.speed-row b { color: #c1b2ff; }
+.speed-row input { width: 100%; accent-color: #aa95ff; }
+.subtitle-box { display: grid; gap: 5px; margin-top: 18px; padding: 12px 14px; border: 1px solid #3e3b59; border-radius: 12px; background: #171725; }
+.subtitle-box span, .stage-footer span { color: #9896ad; font-size: 9px; font-weight: 700; letter-spacing: .15em; }
+.subtitle-box strong { min-height: 18px; color: #e8e1ff; font-size: 14px; }
+.diagnostics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 14px; overflow: hidden; border: 1px solid #38374d; border-radius: 12px; background: #38374d; }
+.diagnostics div { min-height: 56px; display: grid; gap: 4px; padding: 10px 12px; background: #1a1a29; }
+.diagnostics span { color: #9997ad; font-size: 9px; text-transform: uppercase; letter-spacing: .09em; }
+.diagnostics b { color: #ddd9ed; font-size: 11px; font-weight: 600; }
+.notice { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 11px; line-height: 1.5; }
+.notice.warning { color: #ffdfa1; background: #8a5d202b; }
+.notice.error { color: #ffc0c3; background: #8a26302b; }
+.small-note { margin: 14px 0 0; color: #9694aa; font-size: 10px; line-height: 1.55; }
+.stage { display: flex; flex-direction: column; padding: 22px; }
+.stage-heading { align-items: center; }
+.state-pill { padding: 6px 10px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.state-pill.good { color: #8ae1b8; background: #2a72503a; }
+.state-pill.busy { color: #ffd68d; background: #90652642; }
+.state-pill.bad { color: #ff9ea5; background: #842f3942; }
+.avatar-stage { position: relative; flex: 1; min-height: 520px; margin-top: 16px; overflow: hidden; border: 1px solid #48465f; border-radius: 16px; background: radial-gradient(ellipse at 52% 28%, #f7f2ff 0, #e7e1f6 40%, #d6cde8 100%); }
+.avatar-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; color: #48425c; background: #f7f4ffb8; font-size: 13px; font-weight: 700; }
+.error-overlay { padding: 24px; color: #8e2930; text-align: center; }
+.stage-footer { display: flex; justify-content: space-between; gap: 12px; padding: 13px 2px 0; }
+.stage-footer strong { color: #ece8fa; font-size: 12px; text-align: right; }
+footer { margin-top: 20px; color: #777589; font-size: 10px; text-align: right; }
+footer code { color: #aaa3c9; }
+@media (max-width: 880px) { .lab-grid { grid-template-columns: 1fr; } .avatar-stage { min-height: 480px; } }
+@media (max-width: 580px) { .lab-shell { width: min(100% - 24px, 600px); padding-top: 24px; } .lab-header { flex-direction: column; } .api-badge { width: 100%; } .controls, .stage { padding: 16px; } .avatar-stage { min-height: 400px; } .settings-row { align-items: flex-start; flex-direction: column; gap: 8px; } .settings-row select { width: 100%; } }

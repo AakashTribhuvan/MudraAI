@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3efe7">
+    <meta name="description" content="Browse all images in the local MUDRA sign dataset.">
+    <title>MUDRA — Training image index</title>
+    <link rel="stylesheet" href="/image-index.css">
+    <script src="/image-index.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Return to MUDRA Studio">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-name">MUDRA<span class="brand-dot">.</span></span>
+        <span class="brand-divider"></span>
+        <span class="brand-section">IMAGE INDEX</span>
+      </a>
+      <a class="back-link" href="/">Back to studio <span aria-hidden="true">↗</span></a>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">LOCAL DATASET / IMAGE REVIEW</p>
+        <h1>Every frame,<br><em>in one place.</em></h1>
+        <p class="intro-copy">
+          Browse the source images grouped by folder. Folder names are provisional labels, not
+          verified ISL glosses. Images load as you scroll.
+        </p>
+      </section>
+      <section class="tools" aria-label="Filter training images">
+        <label class="search-label" for="image-search">Search images
+          <input id="image-search" type="search" placeholder="Search label or filename">
+        </label>
+        <label class="filter-label" for="label-filter">Folder
+          <select id="label-filter">
+            <option value="">All folders</option>
+          </select>
+        </label>
+        <p id="image-count" class="image-count" role="status" aria-live="polite">Loading image index…</p>
+      </section>
+      <p id="load-error" class="load-error" role="alert" hidden></p>
+      <section id="image-grid" class="image-grid" aria-label="Dataset images"></section>
+      <footer class="page-footer">
+        <span>LOCAL SIGN DATASET</span>
+        <span>Images are served from this computer; no upload is performed.</span>
+      </footer>
+    </main>
+  </body>
+</html>

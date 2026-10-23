@@ -14,9 +14,10 @@
 
 import { FilesetResolver, HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision'
 
-const WASM_PATH = '/wasm'
-const HAND_MODEL = '/models/hand_landmarker.task'
-const POSE_MODEL = '/models/pose_landmarker_lite.task'
+const ASSET_BASE = import.meta.env.BASE_URL
+const WASM_PATH = `${ASSET_BASE}wasm`
+const HAND_MODEL = `${ASSET_BASE}models/hand_landmarker.task`
+const POSE_MODEL = `${ASSET_BASE}models/pose_landmarker_lite.task`
 
 // MediaPipe Hand Connection Pairs
 export const HAND_CONNECTIONS = [
@@ -185,7 +186,10 @@ class HandTrackerService {
       throw err
     }
     const size = CAMERA_RESOLUTIONS[resolution] || CAMERA_RESOLUTIONS[480]
-    const video = { width: { ideal: size.width }, height: { ideal: size.height }, frameRate: { ideal: 30 } }
+    const portraitPhone = window.matchMedia?.('(max-width: 767px) and (orientation: portrait)').matches
+    const video = portraitPhone
+      ? { width: { ideal: 480 }, height: { ideal: 854 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 24 } }
+      : { width: { ideal: size.width }, height: { ideal: size.height }, frameRate: { ideal: 30 } }
     let stream
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -408,6 +412,11 @@ class HandTrackerService {
       ctx.translate(width, 0)
       ctx.scale(-1, 1)
     }
+    // Tracking can place finger points a few pixels beyond the image edge. Clip every
+    // overlay to the captured frame so the visible sign box never escapes the preview.
+    ctx.beginPath()
+    ctx.rect(0, 0, width, height)
+    ctx.clip()
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.strokeStyle = 'rgba(253, 186, 116, 0.55)'
@@ -434,6 +443,9 @@ class HandTrackerService {
       ctx.translate(width, 0)
       ctx.scale(-1, 1)
     }
+    ctx.beginPath()
+    ctx.rect(0, 0, width, height)
+    ctx.clip()
 
     // 1. Draw Bone Connections with elegant gradient stroke
     ctx.lineWidth = 3.5
@@ -487,6 +499,21 @@ class HandTrackerService {
       ctx.fill()
       ctx.stroke()
     })
+
+    const xs = landmarks.map((point) => Math.max(0, Math.min(1, point.x)) * width)
+    const ys = landmarks.map((point) => Math.max(0, Math.min(1, point.y)) * height)
+    const pad = Math.min(24, Math.round(Math.min(width, height) * 0.045))
+    const left = Math.max(0, Math.min(...xs) - pad)
+    const top = Math.max(0, Math.min(...ys) - pad)
+    const right = Math.min(width, Math.max(...xs) + pad)
+    const bottom = Math.min(height, Math.max(...ys) + pad)
+    if (right > left && bottom > top) {
+      ctx.strokeStyle = 'rgba(168, 224, 99, 0.95)'
+      ctx.lineWidth = Math.max(2, Math.min(width, height) * 0.004)
+      ctx.setLineDash([Math.max(6, width * 0.012), Math.max(4, width * 0.008)])
+      ctx.strokeRect(left, top, right - left, bottom - top)
+      ctx.setLineDash([])
+    }
 
     ctx.restore()
   }

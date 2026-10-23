@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Accessibility, LogOut, Menu, X } from 'lucide-react'
 import Logo from '../components/brand/Logo'
-import StatusPill from '../components/ui/StatusPill'
 import { useAccessibility } from '../context/AccessibilityContext'
 import { useSession } from '../context/SessionContext'
 
@@ -58,7 +57,7 @@ export default function Shell({ primary, secondary = [], accent = 'orange', home
           <div className="mt-2 rounded-sl border border-sl-cream-300 bg-white px-3 py-2 text-xs text-sl-ink-600">
             <div className="flex items-center justify-between gap-2">
               <span className="truncate font-bold text-sl-ink">{session?.name}</span>
-              <StatusPill status="demo">Demo {session?.role}</StatusPill>
+              <span className="rounded-full border border-sl-ink/20 px-2 py-1 text-[10px] font-bold uppercase">{session?.role}</span>
             </div>
           </div>
           <p className="px-2 text-[11px] text-sl-ink-600">

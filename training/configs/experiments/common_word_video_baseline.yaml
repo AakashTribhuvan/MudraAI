@@ -1,0 +1,36 @@
+# Experimental model for the downloaded public word clips. It is not deployed.
+base: base.yaml
+
+data:
+  split_dir: data/metadata/splits/common_word_videos
+
+features: {seq_len: 24, use_velocity: true}
+model:
+  temporal: bilstm
+  mlp_hidden: 128
+  mlp_out: 96
+  lstm_hidden: 128
+  lstm_layers: 1
+  dropout: 0.4
+
+augment:
+  rotation_deg: 8.0
+  scale: 0.08
+  shear: 0.05
+  shift: 0.04
+  jitter: 0.002
+  hand_dropout: 0.03
+  temporal_crop_min: 0.85
+
+train:
+  epochs: 100
+  batch_size: 16
+  lr: 0.0005
+  weight_decay: 0.03
+  label_smoothing: 0.05
+  warmup_epochs: 4
+  patience: 18
+  amp: false
+  class_weights: true
+
+background: null

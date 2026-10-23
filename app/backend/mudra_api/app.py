@@ -15,6 +15,7 @@ from mudra_ml.streaming import ModelBundle, SegmenterConfig, StreamingRecognizer
 from pydantic import BaseModel, Field
 
 from mudra_api import __version__
+from mudra_api.google_auth import router as google_auth_router
 from mudra_api.auto_mode import AutoRecognizer
 from mudra_api.extra_models import (
     TEAMMATE_TEST_ACCURACY,
@@ -386,5 +387,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def predict(req: PredictRequest) -> dict:
         return require_model().predict(req, settings.min_hand_rate)
 
+    app.include_router(google_auth_router)
     app.include_router(emergency_router())  # SignLine Emergency (self-contained, /api/v1/emergency)
     return app

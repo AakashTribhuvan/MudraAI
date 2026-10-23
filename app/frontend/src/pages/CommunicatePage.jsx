@@ -59,6 +59,7 @@ export default function CommunicatePage() {
   // --- Mode A (Sign to Speech) State ---
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+  const cameraPanelRef = useRef(null)
 
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraLoading, setCameraLoading] = useState(false)
@@ -472,6 +473,19 @@ export default function CommunicatePage() {
 
     const canvas = canvasRef.current
     if (!canvas) return
+    const frameWidth = results.width || 640
+    const frameHeight = results.height || 480
+    // Keep the landmark overlay in the exact camera coordinate space. The browser may
+    // negotiate a portrait stream on phones or a different webcam aspect ratio on desktop.
+    if (canvas.width !== frameWidth) canvas.width = frameWidth
+    if (canvas.height !== frameHeight) canvas.height = frameHeight
+    const panel = cameraPanelRef.current
+    if (panel) {
+      const frameAspect = `${frameWidth} / ${frameHeight}`
+      if (panel.style.getPropertyValue('--camera-frame-aspect') !== frameAspect) {
+        panel.style.setProperty('--camera-frame-aspect', frameAspect)
+      }
+    }
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -718,8 +732,9 @@ export default function CommunicatePage() {
           .communicate-camera-panel {
             width: 100%;
             max-width: 100%;
-            aspect-ratio: auto;
-            height: clamp(480px, 72dvh, 680px);
+            aspect-ratio: var(--camera-frame-aspect, 3 / 4);
+            height: auto;
+            max-height: min(76dvh, 680px);
             min-height: 0;
           }
           .communicate-camera-panel video,
@@ -790,7 +805,7 @@ export default function CommunicatePage() {
           
           {/* Left: Live Webcam + Canvas Landmark Overlay */}
           <div className="lg:col-span-7 space-y-5">
-            <div className="communicate-camera-panel relative aspect-video sm:aspect-[4/3] min-h-[320px] sm:min-h-0 bg-mudra-indigo-900 rounded-3xl overflow-hidden shadow-xl border-2 border-mudra-indigo-700/90 flex flex-col justify-between p-4 sm:p-5 text-white">
+            <div ref={cameraPanelRef} className="communicate-camera-panel relative aspect-video sm:aspect-[4/3] min-h-[320px] sm:min-h-0 bg-mudra-indigo-900 rounded-3xl overflow-hidden shadow-xl border-2 border-mudra-indigo-700/90 flex flex-col justify-between p-4 sm:p-5 text-white">
               
               <video
                 ref={videoRef}

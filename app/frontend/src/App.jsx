@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import {
   BarChart3, BookOpen, Disc, Gamepad2, Home, LayoutDashboard, Library, MessagesSquare, ScrollText, Settings,
   Swords, TrendingUp, Users,
@@ -62,14 +62,16 @@ const TAB_ROUTES = {
 
 /** Demo role gate: client-side only (see SessionContext). */
 function RequireRole({ role, children }) {
-  const { session } = useSession()
+  const { session, ready } = useSession()
+  if (!ready) return <div className="min-h-screen bg-sl-cream" aria-live="polite" />
   if (!session) return <Navigate to="/welcome" replace />
   if (session.role !== role) return <Navigate to={session.role === 'admin' ? '/admin' : '/app/home'} replace />
   return children
 }
 
 function StartRoute() {
-  const { session } = useSession()
+  const { session, ready } = useSession()
+  if (!ready) return <div className="min-h-screen bg-sl-cream" aria-live="polite" />
   return <Navigate to={!session ? '/welcome' : session.role === 'admin' ? '/admin' : '/app/home'} replace />
 }
 
@@ -176,11 +178,12 @@ function useStartup() {
 }
 
 export default function App() {
+  const AppRouter = import.meta.env.MODE === 'electron' ? HashRouter : BrowserRouter
   const { phase, retry, skip } = useStartup()
   return (
     <AccessibilityProvider>
       <SessionProvider>
-        <BrowserRouter>
+        <AppRouter>
           {phase !== 'done' && <AppLoader leaving={phase === 'leaving'} failed={phase === 'failed'} onRetry={retry} onSkip={skip} />}
           <Routes>
             <Route path="/" element={<StartRoute />} />
@@ -207,7 +210,7 @@ export default function App() {
           </Routes>
           <EmergencySOSButton />
           <AccessibilityModal />
-        </BrowserRouter>
+        </AppRouter>
       </SessionProvider>
     </AccessibilityProvider>
   )

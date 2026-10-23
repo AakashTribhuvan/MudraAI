@@ -9,7 +9,9 @@
  * Configure with VITE_API_URL (backend address) and VITE_SIGN_MODEL=off to disable.
  */
 
-export const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000'
+export const API_BASE_URL = import.meta.env?.VITE_API_URL || (
+  import.meta.env?.MODE === 'electron' ? 'http://localhost:8000' : window.location.origin
+)
 const MODE = import.meta.env?.VITE_SIGN_MODEL || 'auto'
 const WS_URL = API_BASE_URL.replace(/^http/, 'ws') + '/stream'
 const HEALTH_TIMEOUT_MS = 2500

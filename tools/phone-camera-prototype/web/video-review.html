@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3efe7">
+    <meta name="description" content="Review sentence videos and annotate sign boundaries locally.">
+    <title>MUDRA — Video review</title>
+    <link rel="stylesheet" href="/video-review.css">
+    <script src="/video-review.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand" aria-label="MUDRA video reviewer">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-name">MUDRA<span class="brand-dot">.</span></span>
+        <span class="brand-divider"></span>
+        <span class="brand-section">LOCAL VIDEO REVIEW</span>
+      </div>
+      <span class="local-badge">● THIS COMPUTER ONLY</span>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">DATASET REVIEW / DYNAMIC SIGN PILOT</p>
+        <h1>Mark the sign.<br><em>Keep its timing.</em></h1>
+        <p class="intro-copy">
+          Review the phrase-folder video, verify the gloss, and mark sign and meaningful motion-phase
+          timestamps. Original videos are read-only. Folder names and filenames are not verified
+          glosses.
+        </p>
+      </section>
+
+      <section class="video-picker" aria-label="Choose a source video">
+        <label for="video-search">Find a source video
+          <input id="video-search" type="search" placeholder="Search phrase folder or filename">
+        </label>
+        <label for="video-select">Source clip
+          <select id="video-select"></select>
+        </label>
+        <p id="collection-count" class="count" role="status" aria-live="polite">Loading videos…</p>
+      </section>
+      <p id="load-error" class="error" role="alert" hidden></p>
+
+      <section class="review-layout">
+        <article class="card video-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">01 / SOURCE</p>
+              <h2 id="source-folder">Choose a video</h2>
+            </div>
+            <span id="decode-status" class="status-pill">NOT LOADED</span>
+          </div>
+          <video id="source-video" controls preload="metadata" playsinline></video>
+          <div id="frame-fallback" class="frame-fallback" hidden>
+            <img id="frame-preview" alt="Decoded source-video frame preview">
+            <div class="fallback-controls">
+              <button id="fallback-play" type="button" class="secondary">Play</button>
+              <label for="fallback-time">Frame time
+                <input id="fallback-time" type="range" min="0" max="1" step="0.04" value="0">
+              </label>
+              <span id="fallback-clock" class="playhead">0.000 s</span>
+            </div>
+            <p class="fallback-note">Using decoded-frame preview because this browser cannot play the source codec. Source remains unchanged.</p>
+          </div>
+          <p id="source-filename" class="source-name">Select a source clip from the list.</p>
+          <dl id="video-metadata" class="metadata"></dl>
+          <p id="provisional-warning" class="warning">
+            Folder label is provisional. A filename does not establish a sign label.
+          </p>
+        </article>
+
+        <article class="card annotation-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">02 / ANNOTATION</p>
+              <h2>One sign instance</h2>
+            </div>
+            <span id="playhead" class="playhead">TIME 0.000 s</span>
+          </div>
+          <div class="boundary-grid">
+            <label for="segment-start">Sign start (seconds)
+              <div class="time-entry">
+                <input id="segment-start" type="number" min="0" step="0.001" required>
+                <button id="mark-start" type="button" class="secondary">Mark current</button>
+              </div>
+            </label>
+            <label for="segment-end">Sign end (seconds)
+              <div class="time-entry">
+                <input id="segment-end" type="number" min="0" step="0.001" required>
+                <button id="mark-end" type="button" class="secondary">Mark current</button>
+              </div>
+            </label>
+          </div>
+          <label for="verified-gloss">Reviewer-confirmed gloss / variant
+            <input id="verified-gloss" type="text" maxlength="120" placeholder="Enter only after checking the sign" required>
+          </label>
+          <div class="phase-tools">
+            <label for="phase-name">Meaningful motion phase
+              <input id="phase-name" type="text" maxlength="80" placeholder="e.g. stroke, contact, return">
+            </label>
+            <button id="mark-phase" type="button" class="secondary">Add phase at playhead</button>
+          </div>
+          <ol id="phase-list" class="phase-list" aria-label="Annotated motion phases"></ol>
+
+          <details class="provenance">
+            <summary>Signer, session and source review</summary>
+            <div class="metadata-fields">
+              <label for="signer-id">Pseudonymous signer ID
+                <input id="signer-id" type="text" maxlength="120" placeholder="Leave blank if unknown">
+              </label>
+              <label for="session-id">Session / recording ID
+                <input id="session-id" type="text" maxlength="120" placeholder="Leave blank if unknown">
+              </label>
+              <label for="source-origin">Source origin
+                <input id="source-origin" type="text" maxlength="500" placeholder="Dataset/source notes">
+              </label>
+              <label for="consent-ref">License or consent reference
+                <input id="consent-ref" type="text" maxlength="500" placeholder="Reference or review note">
+              </label>
+              <label for="provenance-status">Provenance status
+                <select id="provenance-status">
+                  <option value="unknown">Unknown / not reviewed</option>
+                  <option value="confirmed">Confirmed for use</option>
+                  <option value="not_permitted">Not permitted for training</option>
+                </select>
+              </label>
+              <label for="review-status">Segment review status
+                <select id="review-status">
+                  <option value="needs_review">Needs review</option>
+                  <option value="accepted">Accepted for pilot</option>
+                  <option value="rejected">Rejected / uncertain</option>
+                </select>
+              </label>
+              <label for="reviewer">Reviewer
+                <input id="reviewer" type="text" maxlength="120" placeholder="Reviewer name or ID">
+              </label>
+              <label for="review-notes">Review notes
+                <textarea id="review-notes" maxlength="2000" rows="3" placeholder="Label variants, tracking gaps, uncertainty…"></textarea>
+              </label>
+            </div>
+          </details>
+
+          <div class="form-actions">
+            <button id="save-annotation" type="button" class="primary" disabled>Save sign segment</button>
+            <button id="clear-form" type="button" class="secondary">Clear fields</button>
+            <span id="save-status" role="status" aria-live="polite"></span>
+          </div>
+        </article>
+      </section>
+
+      <section class="card saved-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / REVIEWED SEGMENTS</p>
+            <h2>Saved for this source clip</h2>
+          </div>
+          <span id="annotation-count" class="count">0 SEGMENTS</span>
+        </div>
+        <div id="saved-annotations" class="saved-list"></div>
+      </section>
+
+      <footer class="page-footer">
+        <span>LOCAL REVIEW WORKFLOW</span>
+        <span>Source videos are never edited or uploaded. Saving writes a CSV manifest.</span>
+      </footer>
+    </main>
+  </body>
+</html>

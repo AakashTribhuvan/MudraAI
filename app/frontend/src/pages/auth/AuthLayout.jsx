@@ -6,9 +6,9 @@ import { TAGLINE } from '../../components/brand/tagline'
 export function DemoNotice() {
   return (
     <p className="rounded-sl border-2 border-dashed border-sl-sky-700/40 bg-sl-sky-100 px-4 py-3 text-sm text-sl-ink-700">
-      <strong>Demo sign-in.</strong> SignLine has no accounts yet: nothing you type is checked or sent anywhere,
-      passwords are not stored, and anyone can choose either role. Only your display name and role are remembered
-      in this browser.
+      <strong>Judge preview.</strong> Google verifies your identity. Learner access is open; admin access is granted
+      only to email addresses configured by the SignLine team. SignLine requests your name and email address to create
+      a session; it does not request access to Google Drive, contacts, or other Google data.
     </p>
   )
 }

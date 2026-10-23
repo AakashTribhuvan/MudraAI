@@ -1,7 +1,9 @@
 # Dependencies & build output
 node_modules/
 dist/
+app/frontend/release/
 .venv/
+app/backend/.venv-runtime/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -39,6 +41,12 @@ data/metadata/
 
 # SignLine Emergency local database and generated demo credentials (never committed)
 app/backend/var/
+# Local phone-camera prototype data and Cloudflare tunnel state (keep on this PC)
+/tools/phone-camera-prototype/training_data/
+/tools/phone-camera-prototype/models/*.task
+/tools/phone-camera-prototype/cloudflare/.wrangler/
+/tools/phone-camera-prototype/cloudflare/current-tunnel.txt
+/tools/phone-camera-prototype/cloudflare/update-token.txt
 # Avatar models dropped into the viewer's dropdown stay local: third-party characters (e.g. Mixamo) may not be
 # redistributed as files. Only the folder's README is tracked.
 app/frontend/src/assets/avatars/*

@@ -133,7 +133,7 @@ UI: Signing... / "Looks like X" <---- (3-cut smoothing, threshold,           upp
 
 ## Quick start (Windows)
 
-1. Run `start_all.bat`. It creates the Python environment, installs dependencies and starts both servers.
+1. For the desktop app, double-click `start_application.bat`. To use the web app in a browser, run `start_all.bat`. For judge access, run `start_judges.bat`; it starts the backend and public frontend, then updates the stable Cloudflare Worker to proxy the current temporary tunnel. To start only the backend and expose its API through a temporary tunnel, run `start.bat`.
 2. Open http://localhost:3000, choose the demo user, then **Communication -> Start Camera Stream**.
 3. *Words*: sign one word from start to finish, then lower your hands. The word is added when the sign ends.
    *Spell*: hold each letter still for about a second. *Phrase*: sign one phrase, then pick it from the top guesses.
@@ -141,13 +141,33 @@ UI: Signing... / "Looks like X" <---- (3-cut smoothing, threshold,           upp
    5 times. The word works in Communication straight away and is saved for the next training run.
 5. **SOS** (bottom-right, every page) opens the demo emergency assistant; it contacts no one.
 
+## Optional phone-camera tools
+
+The merged workspace keeps its experimental Camo/OpenCV camera tracker under
+[`tools/phone-camera-prototype`](tools/phone-camera-prototype/README.md). It has a separate local
+dashboard and research data; it does not replace or alter the validated v11a recognizer used by
+SignLine. Its 7.2 GB of source media and prototype models are local-only and ignored by Git. Run
+`tools/phone-camera-prototype/start.bat` for local camera testing. The root `start.bat` exposes only
+the main backend API. `start_judges.bat` exposes the SignLine web app through the stable Worker URL;
+anyone with that public link can use the judge preview while the laptop and tunnel remain running.
+Configure Google OAuth values in the local `app/backend/.env` using `.env.example`; register the
+Worker callback URL shown there in Google Cloud Console. Set `SIGNLINE_ADMIN_EMAILS` to the only
+Google accounts that should receive the admin role.
+
+### Google sign-in setup
+
+1. Deploy/update the gateway once with `tools/phone-camera-prototype/cloudflare/configure-worker.ps1` (requires a Wrangler login and the existing local Worker token setup).
+2. In Google Cloud Console, create a **Web application** OAuth client and add both redirect URIs: `https://mudra-camera-gateway.aakashtribhuvan2006.workers.dev/auth/google/callback` and `http://localhost:3000/auth/google/callback`.
+3. Copy `app/backend/.env.example` to `app/backend/.env`, then enter the OAuth client ID and secret. Set `SIGNLINE_AUTH_SECRET` to a long random value. Add admin email addresses to `SIGNLINE_ADMIN_EMAILS`; all other Google users get learner access.
+4. Run `start_judges.bat`. Judges visit the stable Worker URL printed in the launcher; the rotating `trycloudflare.com` address stays an upstream and is not registered with Google.
+
+The OAuth Web client ID and secret are not in the repository. Google Cloud Console setup is required before the button can complete a real sign-in. If Google Cloud Console will not accept the shared `workers.dev` hostname for the OAuth app, use a domain you control as a custom hostname for this Worker.
+
 Backend: http://localhost:8000 (`/docs`, `/health`, `/labels`, `/predict`, `/recordings`,
 `/reference/{sign}`, `/library`, `/letters/predict`, `/phrases/predict`, WebSocket `/stream`). If port 8000 is taken, start the backend with
 `MUDRA_PORT=8010` and set `VITE_API_URL=http://localhost:8010` in `app/frontend/.env`.
 Emergency API: `/api/v1/emergency/...`; responder desk at http://localhost:3000/responder (user `demo.responder`, password in `app/backend/var/demo_responder_credentials.txt` after the first start, or set `SIGNLINE_EM_DEMO_RESPONDER_PASSWORD`).
-Requires Python 3.12+ (tested on 3.14) and Node 20+. An NVIDIA GPU is optional (training only).
-The backend `requirements.txt` pins the CUDA 12.8 PyTorch build used for training; for a CPU-only
-machine install `torch` from the default index instead.
+Requires Python 3.12+ and Node 20+. An NVIDIA GPU is optional; the desktop launcher creates a separate runtime environment and installs CPU PyTorch for general PCs. The full `app/backend/requirements.txt` remains for training and GPU development.
 
 ## Repository layout
 

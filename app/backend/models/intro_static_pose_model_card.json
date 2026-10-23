@@ -1,0 +1,17 @@
+{
+  "name": "Expanded introduction static-pose prototype",
+  "source": "MudraPhoneWebcam training_data/models/intro_static_pose_medoids.npz",
+  "feature_schema": "mudra_static_pose_v10",
+  "task": "still-image static-pose nearest-medoid matching",
+  "classes": 32,
+  "live_eligible_classes": 10,
+  "experimental_test_accuracy": 0.1781,
+  "experimental_test_samples": 73,
+  "warnings": [
+    "HELLO_HI and GOOD are trained classes but are not live-eligible.",
+    "Only classes with finite inferred-source-group rejection thresholds may be returned.",
+    "The held-out groups are filename-derived and are not signer-independent validation.",
+    "This model does not recognize motion, sentence order, grammar, or alphabet signs.",
+    "Folder labels are user-confirmed but have not been independently reviewed by an ISL-fluent signer."
+  ]
+}

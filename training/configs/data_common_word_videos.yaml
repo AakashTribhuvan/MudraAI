@@ -1,0 +1,24 @@
+# Extraction settings for the public isolated-word video experiment.
+paths:
+  raw_root: data/raw
+  processed_root: data/processed/landmarks
+  metadata_root: data/metadata
+  reports_root: experiments/reports
+
+extraction:
+  max_fps: 15
+  pose_model: pose_landmarker_lite.task
+  min_hand_detection_confidence: 0.5
+  min_pose_detection_confidence: 0.5
+  mirrored_input: false
+  workers: 2
+
+quality:
+  min_any_hand_rate: 0.3
+
+sequence:
+  length: 24
+
+splits:
+  ratios: [0.7, 0.15, 0.15]
+  seed: 42
