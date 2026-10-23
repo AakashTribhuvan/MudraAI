@@ -1105,6 +1105,20 @@ that need the model or landmark data skip automatically when those files are mis
 
 ## 21. Change log (newest first)
 
+### 2026-10-23 · Communication (Sign -> Voice) phone layout: tall camera, sign and meaning under it (pushed after `b4a982d`)
+- Owner (with a sketch): on phones the camera was a small wide box and the meaning was below the bottom nav. Fix
+  (CSS in `CommunicatePage.jsx`, below 768 px only): camera `clamp(260px, calc(100dvh - 23rem), 640px)` high (a tall
+  box on most phones); in the results card the detected sign comes first, then the meaning, then the recognized
+  words, then the Words / Spell / Phrase switch (now wrapped in `.communicate-mode-switch`), the model picker and
+  status, then the rest; smaller detected word and meaning text; room on the meaning box's right for the SOS button.
+- Measured (fake camera, emulated phones, after the start-camera scroll): camera 380x352 -> 380x471 at 412x839,
+  358x354 -> 358x476 at 390x844, 398x564 at 430x932, 328x272 at 360x640; the meaning box ends above the bottom nav at
+  all of them (a two-line sentence too). Element positions at 800 / 1024 / 1366 / 1920 px are identical to before.
+- On phones the Words / Spell / Phrase switch is now a short scroll below the camera in every mode.
+- Test-harness note: an off-screen Chrome draws no frames, so a smooth `scrollIntoView` stalls there; keep a
+  `Page.startScreencast` running when measuring scroll positions.
+- Tests: frontend 51 passed.
+
 ### 2026-10-23 · v15b with MY, NAME, MY_NAME; tools/ in the repo; speech model download (pushed after `b5ee2e6`)
 - Owner recorded MY (10), NAME (10), MY_NAME (12) takes (now 214 takes / 33 signs). As custom (few-shot) words they
   took short fragments in the live benchmark (0.8-1.9 s, 14-19 frames at 10-13 fps, similarity ~0.77; also once in

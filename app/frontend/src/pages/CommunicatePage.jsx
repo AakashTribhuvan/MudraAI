@@ -679,7 +679,8 @@ export default function CommunicatePage() {
             width: 100%;
             max-width: 100%;
             aspect-ratio: auto;
-            height: clamp(220px, 42dvh, 380px);
+            /* a tall camera; what is left under the top bar and the bottom nav holds the detected sign and the meaning */
+            height: clamp(260px, calc(100dvh - 23rem), 640px);
             min-height: 0;
           }
           .communicate-camera-panel video,
@@ -692,11 +693,20 @@ export default function CommunicatePage() {
             font-size: 0.75rem;
             line-height: 1rem;
           }
-          /* results first; the model picker (a setting) moves to the end of the card */
-          .communicate-results { padding: 1rem; display: flex; flex-direction: column; }
-          .communicate-results > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+          /* the detected sign and the meaning come first, right under the camera; the recognized words follow,
+             then the Words / Spell / Phrase switch and the model picker and status, then the rest of the card */
+          .communicate-results { padding: 0.75rem 1rem 1rem; display: flex; flex-direction: column; }
+          .communicate-results > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem !important; }
           .communicate-words { display: contents; }
-          .communicate-model-picker { order: 1; margin: 1rem 0 0 !important; }
+          .communicate-see-how, .communicate-recognized { order: 1; }
+          .communicate-mode-switch, .communicate-model-picker, .communicate-model-status { order: 2; }
+          .communicate-model-picker { margin: 0.75rem 0 0 !important; }
+          .communicate-meaning ~ * { order: 3; }
+          .communicate-detected-head { margin-bottom: 0.25rem; }
+          .communicate-detected-row { min-height: 2.25rem; }
+          .communicate-detected-word { font-size: 1.625rem; }
+          .communicate-meaning-box { padding: 0.625rem 3.5rem 0.625rem 0.875rem; min-height: 3.25rem; } /* right: room for the SOS button */
+          .communicate-meaning-text { font-size: 1.0625rem; line-height: 1.4; }
           .communicate-camera-panel .communicate-cue { top: 3.25rem; }
         }
         /* Phones from 360 px: the camera buttons stay on one row, so the tips above them have room */
@@ -1025,7 +1035,7 @@ export default function CommunicatePage() {
           {/* Right: Interpretation Panel & Speech Out */}
           <div className="communicate-right lg:col-span-5 space-y-5 lg:pt-0">
             <div className="communicate-results glass-card rounded-3xl p-5 sm:p-6 border border-mudra-lavender-200/80 shadow-lg space-y-7">
-              <InputModeSwitch mode={inputMode} onChange={changeInputMode} />
+              <div className="communicate-mode-switch"><InputModeSwitch mode={inputMode} onChange={changeInputMode} /></div>
 
               {inputMode === 'spell' ? (
                 <SpellPanel cameraActive={cameraActive} accuracy={libraryModels.letters}
@@ -1073,7 +1083,7 @@ export default function CommunicatePage() {
                     })()}
                   </label>
                 )}
-                <div className="flex items-center justify-between mb-2">
+                <div className="communicate-detected-head flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-[0.12em] text-mudra-lavender-800 font-display">
                     Detected Sign
                   </span>
@@ -1102,8 +1112,8 @@ export default function CommunicatePage() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 min-h-12">
-                  <span className={`font-display font-extrabold text-3xl sm:text-4xl tracking-tight leading-none break-words ${
+                <div className="communicate-detected-row flex items-center gap-3 min-h-12">
+                  <span className={`communicate-detected-word font-display font-extrabold text-3xl sm:text-4xl tracking-tight leading-none break-words ${
                     currentDetection.isUnknown ? 'text-mudra-indigo-600 italic' : 'text-mudra-indigo-950'
                   }`}>
                     {currentDetection.isUnknown
@@ -1124,7 +1134,7 @@ export default function CommunicatePage() {
                   <button
                     type="button"
                     onClick={() => { setVocabOpen(true); setReferenceSign(currentDetection.sign) }}
-                    className="mt-1 text-xs font-semibold text-mudra-indigo-700 underline hover:text-mudra-indigo-900"
+                    className="communicate-see-how mt-1 text-xs font-semibold text-mudra-indigo-700 underline hover:text-mudra-indigo-900"
                   >
                     See how "{currentDetection.label || readableSign(currentDetection.sign)}" is signed
                   </button>
@@ -1144,7 +1154,7 @@ export default function CommunicatePage() {
                     ))}
                   </div>
                 )}
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                <div className="communicate-model-status mt-3 flex flex-wrap items-center gap-2 text-[11px]">
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-mono font-semibold ${
                     modelState.status === 'online' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
                   }`}>
@@ -1166,13 +1176,13 @@ export default function CommunicatePage() {
                   )}
                 </div>
                 {modelState.status === 'offline' && modelState.error && (
-                  <p className="text-[11px] text-mudra-indigo-500 mt-1">{modelState.error}</p>
+                  <p className="communicate-model-status text-[11px] text-mudra-indigo-500 mt-1">{modelState.error}</p>
                 )}
               </div>
               )}
 
               {/* Committed Sequence Buffer */}
-              <div className="space-y-2 pt-2 border-t border-mudra-lavender-200/60">
+              <div className="communicate-recognized space-y-2 pt-2 border-t border-mudra-lavender-200/60">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-mudra-indigo-500 font-display">
                     Recognized
@@ -1205,7 +1215,7 @@ export default function CommunicatePage() {
               </div>
 
               {/* Natural Sentence Output */}
-              <div className="space-y-2 pt-2 border-t border-mudra-lavender-200/60">
+              <div className="communicate-meaning space-y-2 pt-2 border-t border-mudra-lavender-200/60">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-mudra-indigo-500 font-display">
                     Meaning
@@ -1249,8 +1259,8 @@ export default function CommunicatePage() {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-mudra-lavender-50 via-white to-mudra-peach-50 border border-mudra-lavender-300 min-h-[64px] flex items-center">
-                  <div className="font-display font-semibold text-lg sm:text-xl text-mudra-indigo-950">
+                <div className="communicate-meaning-box p-4 rounded-2xl bg-gradient-to-br from-mudra-lavender-50 via-white to-mudra-peach-50 border border-mudra-lavender-300 min-h-[64px] flex items-center">
+                  <div className="communicate-meaning-text font-display font-semibold text-lg sm:text-xl text-mudra-indigo-950">
                     {generatedSentence ? `"${generatedSentence}"` : <span className="text-mudra-indigo-400 italic">No sentence generated yet</span>}
                   </div>
                 </div>
