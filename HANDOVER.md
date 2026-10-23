@@ -1143,6 +1143,23 @@ that need the model or landmark data skip automatically when those files are mis
 
 ## 21. Change log (newest first)
 
+### 2026-10-23 · Lost hands are searched again; "camera loses your hands" hint (pushed after `a542887`)
+- Checked the tracking points on held-out sign videos in real Chrome (RTX): hand, finger and shoulder points sit on the
+  person; body wrists and hand wrists agree within 0.4% (x) / 1% (y) of the picture. The weakness: in VIDEO mode
+  MediaPipe follows a hand from the previous frame and loses small or fast hands (24% of raised wrists at 25 fps, 34% at
+  6 fps had no hand; a search of the whole frame finds only 21-36% of them).
+- New in `handTracker.js`: when the body model shows a raised wrist without a hand (`handMissCounts`), a second hand
+  landmarker (IMAGE mode, confidence 0.3) searches a zoomed square around that wrist (`handCrop`: 0.4 of the picture
+  height, as MediaPipe Holistic uses the body to find hands); found hands near the wrist are added (`mergeHands`,
+  `fromCrop`). Skipped above 60 ms per frame. Offline: finds 58% (25 fps) / 69% (6 fps) of the lost hands.
+  Live, 24-sign fake webcam (before -> after): hand in 86 -> 91% / 86 -> 92% / 82 -> 92% of sign frames at 25 / 12 /
+  6 fps, both hands 57 -> 64 / 50 -> 60 / 41 -> 59%; signs right 23 -> 23 / 23 -> 22 / 17 -> 22 (wrong 0 / 0 / 1 -> 2,
+  LAMP twice); speed unchanged (26 fps, 29 ms per frame at 25 fps).
+- Communicate shows "The camera loses your hands" when over 50% of raised wrists have no hand (90-frame window; clear
+  test videos at 25 fps peak at 48%); `client_diag` logs `hand_miss`.
+- Measured, not kept: `pose_landmarker_full` live (same or worse: 23 / 22 / 15 right, more wrong, slower).
+- Tests: frontend 54 (+3), backend 101, build OK.
+
 ### 2026-10-23 · Skeleton overlay follows the camera's picture size (pushed after `3d653ae`)
 - Owner: "hands are not tracking the nodes properly". The owner's Chrome now runs on the RTX (restarted 13:10;
   13-29 ms per frame, 15-35 fps), but sign segments had a hand in 40-85% and both hands in 0-30% of frames.

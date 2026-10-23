@@ -51,6 +51,8 @@ const CAMERA_ERRORS = {
 const RULE_SIGNS = ['HELLO', 'WATER', 'NAMASTE', 'THANK_YOU', 'YES', 'NO', 'PEACE', 'HELP']
 // Close-up framing: shoulders wider than this share of the frame, or lower than this height, leave no room for the hands
 const FRAMING = { maxShoulderWidth: 0.6, maxShoulderY: 0.72 }
+// the "camera loses your hands" hint: share of raised wrists (body model) with no hand found near them (handTracker)
+const HAND_MISS_HINT = 0.5 // clear test videos at 25 fps never reach it (highest 0.48 over 90-frame windows)
 
 export default function CommunicatePage() {
   // Mode toggle: 'sign-to-speech' (ISL -> Voice) vs 'speech-to-sign' (Voice/Text -> 3D ISL Avatar)
@@ -884,6 +886,12 @@ export default function CommunicatePage() {
                     : trackerDiag?.delegate === 'CPU'
                     ? `Hand tracking runs on the CPU (${trackerFps} fps). Turn on hardware acceleration in the browser settings, or close other tabs.`
                     : `Hand tracking is slow (${trackerFps} fps, ${trackerDiag?.inferenceMs ?? '?'} ms per frame). Close other tabs or apps using the GPU.`}
+                </div>
+              )}
+
+              {cameraActive && !cameraIssue && !framing && !(trackerFps > 0 && trackerFps < LOW_FPS) && trackerDiag?.handMissRate >= HAND_MISS_HINT && (
+                <div className="communicate-hint absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
+                  {`The camera loses your hands (${Math.round(trackerDiag.handMissRate * 100)}% of the time they are raised). Add light in front of you, keep both hands inside the picture and a little away from your face, and sign a little slower.`}
                 </div>
               )}
 

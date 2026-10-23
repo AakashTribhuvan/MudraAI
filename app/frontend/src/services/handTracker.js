@@ -120,6 +120,82 @@ export function browserGpu() {
 
 const ema = (prev, value, k = 0.1) => (prev ? (1 - k) * prev + k * value : value)
 
+// Missed hands: the body model sees a wrist raised above the middle of the torso, but the hand model finds no hand
+// near it. Over the last MISS_WINDOW frames this share explains a poor live session (dim light, motion blur, hands at
+// the edge of the picture) that the frame rate does not show.
+const MISS_WINDOW = 90
+const MISS_NEAR = 0.15 // a detected hand's wrist this close (share of the picture width) to the body's wrist counts
+// Hand search: in VIDEO mode MediaPipe follows each hand from the previous frame and, once it loses one (fast sign,
+// slow camera), looks for it again only on the next frame. When the body model shows a raised wrist without a hand,
+// a second hand landmarker in IMAGE mode searches the same frame from scratch (measured on held-out sign videos:
+// see HANDOVER 2026-10-23). Skipped while tracking already takes SEARCH_MAX_MS per frame (slow computers).
+const SEARCH_MAX_MS = 60
+const SAME_HAND = 0.1 // a found hand this close (wrist, share of the picture) to a tracked one is the same hand
+// the search may accept a blurred palm (it only runs where the body model shows a raised wrist without a hand)
+const SEARCH_OPTIONS = { runningMode: 'IMAGE', minHandDetectionConfidence: 0.3, minHandPresenceConfidence: 0.3 }
+
+/** Hands found by the search that are not already tracked, appended to the tracked ones. */
+export function mergeHands(tracked, found) {
+  const landmarks = [...(tracked.landmarks || [])]
+  const handedness = [...(tracked.handedness || tracked.handednesses || [])]
+  const extra = found?.landmarks || []
+  const extraSides = found?.handedness || found?.handednesses || []
+  extra.forEach((h, i) => {
+    if (landmarks.length >= 2 || !h?.[0]) return
+    if (landmarks.some((t) => Math.hypot(t[0].x - h[0].x, t[0].y - h[0].y) < SAME_HAND)) return
+    landmarks.push(h)
+    handedness.push(extraSides[i] || [])
+  })
+  return { landmarks, handedness, added: landmarks.length - (tracked.landmarks || []).length }
+}
+
+/** { raised, missed } wrists in one frame: raised = a visible body wrist above the middle of the torso. */
+export function handMissCounts(handLandmarks, poseLandmarks) {
+  const p = poseLandmarks
+  if (!p || p.length < 25) return { raised: 0, missed: 0 }
+  const seen = (pt) => pt && (pt.visibility ?? 1) >= 0.7 && pt.x > 0 && pt.x < 1 && pt.y > 0 && pt.y < 1
+  if (!seen(p[11]) || !seen(p[12])) return { raised: 0, missed: 0 }
+  const shoulderY = (p[11].y + p[12].y) / 2
+  const hipY = p[23] && p[24] ? (p[23].y + p[24].y) / 2 : shoulderY + 2 * Math.abs(p[11].x - p[12].x)
+  let raised = 0
+  let missed = 0
+  const where = []
+  for (const [wi, pi, ii] of [[15, 17, 19], [16, 18, 20]]) {
+    const w = p[wi]
+    if (!seen(w) || w.y > (shoulderY + hipY) / 2) continue
+    raised += 1
+    const near = (handLandmarks || []).some((h) => h?.[0] && Math.hypot(h[0].x - w.x, h[0].y - w.y) < MISS_NEAR)
+    if (!near) {
+      missed += 1
+      where.push({ wrist: w, pinky: p[pi], index: p[ii], shoulderWidth: Math.abs(p[11].x - p[12].x) })
+    }
+  }
+  return { raised, missed, where }
+}
+
+/**
+ * Square crop (pixels) around a hand the tracker lost, from the body model's wrist, pinky and index points (as
+ * MediaPipe Holistic does): zoomed in, a small or blurred hand is large enough for the palm detector.
+ */
+export function handCrop(where, width, height) {
+  const { wrist, pinky, index, shoulderWidth } = where
+  const mid = pinky && index ? { x: (pinky.x + index.x) / 2, y: (pinky.y + index.y) / 2 } : wrist
+  const cx = (wrist.x + 0.9 * (mid.x - wrist.x)) * width
+  const cy = (wrist.y + 0.9 * (mid.y - wrist.y)) * height
+  const reach = Math.hypot((mid.x - wrist.x) * width, (mid.y - wrist.y) * height)
+  // 0.4 of the picture height (or 1.5 shoulder widths): offline on held-out sign videos this size found 58% of the
+  // lost hands at 25 fps and 69% at 6 fps (0.6 shoulder widths: 26%, the whole picture: 21%)
+  const side = Math.min(Math.max(0.4 * height, 1.5 * shoulderWidth * width, 3 * reach), width, height)
+  const x = Math.min(Math.max(cx - side / 2, 0), width - side)
+  const y = Math.min(Math.max(cy - side / 2, 0), height - side)
+  return { x, y, side }
+}
+
+/** Landmarks found in a crop, back in whole-picture coordinates (0-1). */
+export function fromCrop(landmarks, crop, width, height) {
+  return landmarks.map((q) => ({ ...q, x: (crop.x + q.x * crop.side) / width, y: (crop.y + q.y * crop.side) / height }))
+}
+
 // Resolutions offered in the UI (the browser may negotiate another size; the video reports the real one)
 export const CAMERA_RESOLUTIONS = { 480: { width: 640, height: 480 }, 720: { width: 1280, height: 720 } }
 
@@ -193,6 +269,7 @@ class HandTrackerService {
       this.handLandmarker = hands.landmarker
       this.poseLandmarker = pose.landmarker
       this.delegate = hands.delegate === 'GPU' && pose.delegate === 'GPU' ? 'GPU' : 'CPU'
+      this._loadHandSearch(hands.delegate)
       this._warmUp()
       return this
     })().catch((error) => {
@@ -202,6 +279,25 @@ class HandTrackerService {
     })
 
     return this.initializationPromise
+  }
+
+  /** The IMAGE-mode hand landmarker used to look again for a hand the tracker lost (see SEARCH_MAX_MS). */
+  _loadHandSearch(delegate) {
+    const old = this.handSearch
+    this.handSearch = null
+    old?.close?.()
+    createWithFallback(HandLandmarker, this.vision, { ...HAND_OPTIONS, ...SEARCH_OPTIONS }, delegate)
+      .then(({ landmarker }) => {
+        try { // compile its GPU programs now, not on the first lost hand (seconds on the first detection)
+          const blank = document.createElement('canvas')
+          blank.width = 640
+          blank.height = 480
+          blank.getContext('2d').fillRect(0, 0, 640, 480)
+          landmarker.detect(blank)
+        } catch { /* warm-up is only an optimisation */ }
+        this.handSearch = landmarker
+      })
+      .catch((err) => console.warn('Hand search is unavailable:', err))
   }
 
   /**
@@ -349,6 +445,7 @@ class HandTrackerService {
       this.poseLandmarker = pose
       this.lastPose = null
       this.delegate = delegate
+      this._loadHandSearch(delegate)
       return
     }
     if (p.done || p.loading || p.swap) return
@@ -433,7 +530,7 @@ class HandTrackerService {
       this.lastTimestamp = timestamp
       try {
         const started = performance.now()
-        const hands = this.handLandmarker.detectForVideo(video, timestamp)
+        let hands = this.handLandmarker.detectForVideo(video, timestamp)
         // Pose on every frame when tracking is fast (a discrete GPU: ~20 ms for hands + pose), so the body points and
         // the hand-to-shoulder features are never a frame old; on slower machines every other frame (the body moves
         // slowly), every third above POSE_SLOW_MS
@@ -447,6 +544,32 @@ class HandTrackerService {
           this.lastPose = this.poseLandmarker.detectForVideo(video, timestamp)
         }
         const pose = this.lastPose
+        let miss = handMissCounts(hands.landmarks, pose.landmarks?.[0])
+        if (miss.missed > 0 && this.handSearch && (this.inferenceMs || 0) < SEARCH_MAX_MS) {
+          const W = video.videoWidth
+          const H = video.videoHeight
+          const canvas = (this.cropCanvas ||= Object.assign(document.createElement('canvas'), { width: 256, height: 256 }))
+          const ctx = canvas.getContext('2d')
+          let merged = hands
+          for (const where of miss.where) {
+            const crop = handCrop(where, W, H)
+            ctx.drawImage(video, crop.x, crop.y, crop.side, crop.side, 0, 0, 256, 256)
+            const found = this.handSearch.detect(canvas)
+            const sides = found.handedness || found.handednesses || []
+            const near = (found.landmarks || []).map((l, i) => [fromCrop(l, crop, W, H), sides[i]])
+              .filter(([l]) => Math.hypot(l[0].x - where.wrist.x, l[0].y - where.wrist.y) < 1.5 * MISS_NEAR) // that hand, not a face
+            merged = mergeHands(merged, { landmarks: near.map(([l]) => l), handedness: near.map(([, s]) => s) })
+          }
+          merged.added = (merged.landmarks || []).length - (hands.landmarks || []).length
+          if (merged.added) {
+            hands = merged
+            miss = handMissCounts(hands.landmarks, pose.landmarks?.[0])
+            this.handsFound = (this.handsFound || 0) + merged.added
+          }
+        }
+        this.missLog = [...(this.missLog || []), miss].slice(-MISS_WINDOW)
+        const raised = this.missLog.reduce((a, m) => a + m.raised, 0)
+        const handMissRate = raised >= 20 ? this.missLog.reduce((a, m) => a + m.missed, 0) / raised : null
         const spent = performance.now() - started
         this.inferenceMs = ema(this.inferenceMs, spent)
         this._probeDelegate(spent, (hands.landmarks || []).length > 0)
@@ -471,6 +594,7 @@ class HandTrackerService {
             delegate: this.delegate,
             gpu: browserGpu().name,
             integratedGpu: browserGpu().integrated,
+            handMissRate: handMissRate == null ? null : Math.round(handMissRate * 100) / 100,
             camera: this.stream?.getVideoTracks?.()[0]?.label || ''
           }
         })
@@ -489,6 +613,7 @@ class HandTrackerService {
     this.healthTimer = null
     this.issue = null
     this.lastPose = null
+    this.missLog = []
     this.lastFrameAt = 0
     this.fps = 0
     this.cameraFps = 0
