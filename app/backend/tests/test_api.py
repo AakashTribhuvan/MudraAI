@@ -360,6 +360,94 @@ def test_segmenter_joins_a_short_piece_with_the_rest_of_the_sign():
     assert len(ended) == 1 and ended[0][1] <= 1.1, joined  # one sign, starting at the first piece
 
 
+class _LengthModel:
+    """Stand-in for ModelBundle: a cut longer than 1.5 s reads as word A (0.85), a shorter one is unsure."""
+
+    classes = ["_BACKGROUND_", "A", "B"]
+    threshold = 0.7
+    cleaning = None
+
+    def known_boundaries(self, k):
+        return None
+
+    def probs_and_embeddings(self, seqs, width, height):
+        p = [[0.05, 0.85, 0.1] if (s.timestamps_ms[-1] - s.timestamps_ms[0]) / 1000 > 1.5 else [0.3, 0.4, 0.3] for s in seqs]
+        return np.array(p), np.zeros((len(seqs), 4))
+
+    def probs(self, seqs, width, height):
+        return self.probs_and_embeddings(seqs, width, height)[0]
+
+    def decide(self, *args, **kwargs):
+        from mudra_ml.streaming import ModelBundle
+
+        return ModelBundle.decide(self, *args, **kwargs)
+
+
+def _paused_sign(cfg, moves, total_s=5.0, linger_s=0.6):
+    """Feed a raised right hand that moves during each (start, end) span of ``moves`` and is held still between;
+    the hand leaves the view ``linger_s`` after the last span. Returns the recognizer's events."""
+    from mudra_ml.streaming import Frame, StreamingRecognizer
+
+    pose = np.zeros((33, 4), np.float32)
+    pose[11], pose[12] = [0.6, 0.5, 0, 1], [0.4, 0.5, 0, 1]
+    rec, events, x = StreamingRecognizer(_LengthModel(), cfg, 640, 480), [], 0.5
+    for i in range(int(total_s * 30)):
+        t = i / 30
+        if any(a <= t < b for a, b in moves):
+            x = 0.5 + 0.08 * np.sin(2 * np.pi * 2 * t)
+        visible = t < moves[-1][1] + linger_s
+        h = np.zeros((2, 21, 3), np.float32)
+        h[1, :, :2] = [x, 0.55]
+        ev = rec.push(Frame(t, h if visible else np.zeros_like(h), np.array([False, visible]), pose, True))
+        if ev:
+            events.append(ev)
+    return events
+
+
+def _paused_cfg(**kw):
+    from mudra_ml.streaming import SegmenterConfig
+
+    return SegmenterConfig(on_s=0.05, off_s=0.3, min_sign_s=0.2, pad_pre_s=0, pad_post_s=0, still_s=0.4, still_speed=0.5,
+                           still_below_y=0.0, join_short_s=0.5, join_gap_s=1.0, commit_threshold=0.7,
+                           provisional_s=1e9, **kw)
+
+
+def test_unsure_part_of_a_sign_with_a_pause_is_held_and_joined():
+    """A phrase with a still pause in the middle (live I_BATHROOM_GO, 2026-10-23): each half alone is unsure;
+    with hold_unsure_s the first half waits for the second and the whole phrase is classified once."""
+    moves = [(1.0, 1.8), (2.6, 3.4)]
+    plain = [e for e in _paused_sign(_paused_cfg(), moves) if e["event"] == "sign_ended"]
+    assert len(plain) == 2 and all(e["result"]["status"] != "ok" for e in plain)
+    held = _paused_sign(_paused_cfg(hold_unsure_s=1.0), moves)
+    ended = [e for e in held if e["event"] == "sign_ended"]
+    assert "sign_held" in [e["event"] for e in held]
+    assert len(ended) == 1 and ended[0]["result"]["status"] == "ok" and ended[0]["result"]["sign"] == "A"
+
+
+def test_held_part_that_is_not_continued_is_still_reported():
+    ended = [e for e in _paused_sign(_paused_cfg(hold_unsure_s=1.0), [(1.0, 1.8)]) if e["event"] == "sign_ended"]
+    assert len(ended) == 1 and ended[0]["stats"]["reason"] in ("held", "rest")
+
+
+def test_short_piece_is_classified_when_no_movement_follows():
+    """A short sign ending in a held handshape (FOOD at the mouth) was held back as a fragment and then dropped
+    when the hands left the view; with flush_fragments it is classified."""
+    moves = [(1.0, 1.25)]
+    assert not [e for e in _paused_sign(_paused_cfg(), moves, linger_s=1.2) if e["event"] == "sign_ended"]
+    flushed = [e for e in _paused_sign(_paused_cfg(flush_fragments=True), moves, linger_s=1.2) if e["event"] == "sign_ended"]
+    assert len(flushed) == 1 and flushed[0]["stats"]["reason"] == "fragment"
+
+
+def test_unsure_sign_gets_a_second_look_with_more_context():
+    """rescue_cuts: an unsure sign is classified again with wider cuts (hands entered the view late, cut ended
+    early) and the most confident passing result is used."""
+    moves = [(1.0, 1.9)]
+    plain = [e for e in _paused_sign(_paused_cfg(), moves) if e["event"] == "sign_ended"]
+    assert len(plain) == 1 and plain[0]["result"]["status"] == "uncertain"
+    second = [e for e in _paused_sign(_paused_cfg(rescue_cuts=True), moves) if e["event"] == "sign_ended"]
+    assert len(second) == 1 and second[0]["result"]["sign"] == "A" and second[0]["result"]["rescued"]
+
+
 def test_events_endpoint_returns_latest_lines_newest_first(tmp_path):
     log = tmp_path / "events.jsonl"
     lines = [json.dumps({"event": "sign_ended", "n": i}) for i in range(5)] + ["not json"]

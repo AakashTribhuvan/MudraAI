@@ -1,5 +1,6 @@
 """Scores a bench run: the server's sign events in the run's time window vs the fake webcam's word order."""
 import json
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 D = ROOT / "experiments" / "tools" / "live_benchmark"
 run = json.loads((D / f"bench_{sys.argv[1]}.json").read_text(encoding="utf-8"))
-truth = [t["label"] for t in json.loads((D / "fakecam" / "signs.json").read_text(encoding="utf-8"))]
+truth = [t["label"] for t in json.loads((D / os.environ.get("CAMDIR", "fakecam") / "signs.json").read_text(encoding="utf-8"))]
 start = datetime.fromisoformat(run["startedAt"].replace("Z", "+00:00")).astimezone().replace(tzinfo=None) - timedelta(seconds=1)
 end = datetime.fromisoformat(run["endedAt"].replace("Z", "+00:00")).astimezone().replace(tzinfo=None) + timedelta(seconds=2)
 events = []

@@ -58,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         recognizer = SignRecognizer(settings.model_dir, settings.device, settings.uncertain_threshold)
         bundle = ModelBundle(settings.model_dir, str(recognizer.device))
         bundle.threshold = recognizer.threshold
+        bundle.use_cleaning(segmenter_cfg)  # live signs and taught-word takes get the same input clean-up
         log.info("Loaded model %s (%d signs) on %s", recognizer.name, len(recognizer.classes), recognizer.device)
     except FileNotFoundError as exc:
         load_error = f"Model files not found in {settings.model_dir}: {exc.filename}"

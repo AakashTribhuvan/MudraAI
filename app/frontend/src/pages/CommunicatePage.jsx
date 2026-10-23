@@ -876,10 +876,10 @@ export default function CommunicatePage() {
 
               {cameraActive && !cameraIssue && !framing && trackerFps > 0 && trackerFps < LOW_FPS && (
                 <div className="communicate-hint absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
-                  {slowReason === 'camera'
+                  {trackerDiag?.integratedGpu
+                    ? `Hand tracking is slow (${trackerFps} fps): Chrome draws with the on-chip graphics (${trackerDiag.gpu}). If this computer also has an NVIDIA or AMD card, set Chrome to "High performance" in Windows Settings > System > Display > Graphics, then restart Chrome (type chrome://restart in the address bar).${slowReason === 'camera' ? ` The camera also sends only ${trackerDiag.cameraFps} frames per second: add light in front of you.` : ''}`
+                    : slowReason === 'camera'
                     ? `Your camera sends only ${trackerDiag.cameraFps} frames per second. Webcams slow down in dim light: add light in front of you.`
-                    : trackerDiag?.integratedGpu
-                    ? `Hand tracking is slow (${trackerFps} fps): the browser uses the on-chip graphics (${trackerDiag.gpu}). If this computer also has an NVIDIA or AMD card, set Chrome to "High performance" in Windows Settings > System > Display > Graphics, then restart Chrome.`
                     : trackerDiag?.delegate === 'CPU'
                     ? `Hand tracking runs on the CPU (${trackerFps} fps). Turn on hardware acceleration in the browser settings, or close other tabs.`
                     : `Hand tracking is slow (${trackerFps} fps, ${trackerDiag?.inferenceMs ?? '?'} ms per frame). Close other tabs or apps using the GPU.`}

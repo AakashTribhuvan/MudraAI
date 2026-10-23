@@ -18,6 +18,7 @@ import torch
 from mudra_ml import schema
 from mudra_ml.datasets.isl_dataset import BACKGROUND_LABEL, FeatureConfig, sequence_features
 from mudra_ml.models.sequence_model import ModelConfig, build_model
+from mudra_ml.preprocessing.resample import clean
 from mudra_ml.preprocessing.sequence import LandmarkSequence
 
 
@@ -53,6 +54,23 @@ class SegmenterConfig:
     # start, so a sign with a pause is classified whole. 0 = off.
     join_short_s: float = 0.0
     join_gap_s: float = 1.0
+    # A held-back piece that is not continued within join_gap_s is classified on its own (a short sign that ends
+    # in a held handshape, e.g. FOOD at the mouth, was otherwise dropped) with this much of its held part kept.
+    flush_fragments: bool = False
+    fragment_keep_s: float = 0.0
+    # A sign that ends in a still pause with an unsure result is held this long (0 = off): when signing resumes,
+    # the two parts are classified as one sign (a phrase with a pause); the parts' own results are used when the
+    # whole is not more confident. Not resumed in time: the held part is reported on its own.
+    hold_unsure_s: float = 0.0
+    # Second look: an unsure sign is classified again with more context before / after it (the hands entered the
+    # camera late, or the cut ended early); the most confident of these that passes the threshold is used.
+    rescue_cuts: bool = False
+    rescue_threshold: float | None = None  # confidence a second-look result needs (None = commit_threshold)
+    # Input clean-up before the model (preprocessing/resample.py): a sign recorded below clean_below_fps is put on an
+    # even clean_fps time grid, and a hand lost for at most fill_gap_s between two sightings is filled in. 0 = off.
+    clean_below_fps: float = 0.0
+    clean_fps: float = 25.0
+    fill_gap_s: float = 0.0
 
     @classmethod
     def load(cls, path: Path | None) -> SegmenterConfig:
@@ -92,6 +110,9 @@ class SignSegmenter:
         self.still_since: float | None = None  # all visible hands still (and low enough) since then
         self.parked = False
         self.pending: tuple[float, float] | None = None  # (start, end) of a held-back short piece
+        self.pending_held = False  # the held-back piece is an unsure sign (hold), not a short fragment
+        self.joined: tuple[float, float, bool] | None = None  # current sign continues (piece start, piece end, held)
+        self.own_start: float | None = None  # where the current sign's own movement started
 
     def _activity(self, f: Frame) -> bool:
         if f.pose_present:
@@ -166,11 +187,23 @@ class SignSegmenter:
                 self.rest_since = self.still_since if self.parked else f.t
 
         if self.state == "idle":
+            gap = cfg.hold_unsure_s if self.pending_held else cfg.join_gap_s
+            if self.pending is not None and (cfg.flush_fragments or self.pending_held) and f.t - self.pending[1] > gap:
+                start, end = self.pending
+                held, self.pending, self.pending_held = self.pending_held, None, False
+                if end - start >= cfg.min_sign_s:
+                    self.last_end = {"reason": "held" if held else "fragment", "duration_s": round(end - start, 3)}
+                    self.last_bounds = (start - cfg.pad_pre_s, end + cfg.fragment_keep_s + cfg.pad_post_s)
+                    seg = self._segment(*self.last_bounds)
+                    if seg is not None:
+                        return "sign_ended", seg
             if self.active_since is not None and f.t - self.active_since >= cfg.on_s:
-                start = self.active_since
-                if self.pending is not None and start - self.pending[1] <= cfg.join_gap_s:
+                start = self.own_start = self.active_since
+                self.joined = None
+                if self.pending is not None and start - self.pending[1] <= gap:
+                    self.joined = (*self.pending, self.pending_held)
                     start = self.pending[0]  # continue the held-back piece: one sign with a pause
-                self.pending = None
+                self.pending, self.pending_held = None, False
                 self.state, self.sign_start = "signing", start
                 return "sign_started", None
             return None, None
@@ -188,12 +221,19 @@ class SignSegmenter:
         self.last_end = {"reason": reason, "duration_s": round(end - start, 3)}
         if reason == "still" and cfg.join_short_s > 0 and end - start < cfg.join_short_s:
             self.pending = (start, end)
+            self.pending_held = self.joined is not None and self.joined[2]  # a held part stays held when continued
             self.last_end = {"reason": "fragment", "duration_s": round(end - start, 3)}
             return "too_short", None
         if end - start < cfg.min_sign_s:
             return "too_short", None
         self.last_bounds = (start - cfg.pad_pre_s, end + cfg.pad_post_s)
+        self.last_span = (start, end)
+        self.last_own_bounds = (self.own_start - cfg.pad_pre_s, end + cfg.pad_post_s)
         return "sign_ended", self._segment(*self.last_bounds)
+
+    def hold(self) -> None:
+        """Hold the sign that just ended (unsure, ended in a still pause): signing again soon continues it."""
+        self.pending, self.pending_held = self.last_span, True
 
     def _segment(self, t0: float, t1: float) -> LandmarkSequence | None:
         fs = [f for f in self.frames if t0 <= f.t <= t1]
@@ -225,9 +265,15 @@ class ModelBundle:
         self.model = build_model(ModelConfig.from_dict(card["model_config"]))
         self.model.load_state_dict(torch.load(Path(model_dir) / "model.pt", map_location=self.device, weights_only=True))
         self.model.to(self.device).eval()
+        self.cleaning: tuple[float, float, float] | None = None  # (below_fps, fps, max_gap_s), see use_cleaning
         boundaries = Path(model_dir) / "known_boundaries.npz"
         self.known_boundaries_path = boundaries if boundaries.exists() else None
         self._known: dict[float, object] = {}
+
+    def use_cleaning(self, cfg: SegmenterConfig) -> None:
+        """Clean every sign before the model (live signs and taught-word takes alike): see preprocessing/resample.py."""
+        on = cfg.clean_below_fps > 0 or cfg.fill_gap_s > 0
+        self.cleaning = (cfg.clean_below_fps, cfg.clean_fps, cfg.fill_gap_s) if on else None
 
     def known_boundaries(self, k: float):
         """KnownWordBoundaries at strictness k (cached), or None when the model has no known_boundaries.npz."""
@@ -243,6 +289,8 @@ class ModelBundle:
         feats = []
         for s in seqs:
             s.meta = {**s.meta, "width": width, "height": height}
+            if self.cleaning is not None:
+                s = clean(s, *self.cleaning)
             x = np.clip(sequence_features(s, self.cfg), -self.cfg.clip_value, self.cfg.clip_value)
             feats.append((x - self.mean) / self.std)
         return torch.from_numpy(np.stack(feats)).to(self.device)
@@ -297,9 +345,12 @@ class StreamingRecognizer:
         self.known = bundle.known_boundaries(cfg.known_boundary_k) if cfg.known_boundary_k is not None else None
         self.last_word: tuple[str, float] | None = None
         self.last_provisional = -1e9
+        self.outbox: list[dict] = []  # a second result from one sign end, sent with the next frame
 
     def push(self, frame: Frame) -> dict | None:
         event, segment = self.segmenter.push(frame)
+        if event is None and self.outbox:
+            return self.outbox.pop(0)
         if event is None and self.segmenter.state == "signing" and frame.t - self.last_provisional >= self.cfg.provisional_s:
             self.last_provisional = frame.t
             cur = self.segmenter.current()
@@ -314,7 +365,49 @@ class StreamingRecognizer:
             return {"event": event, "state": self.segmenter.state} if event else None
         if segment is None:
             return {"event": "sign_ended", "state": "idle", "result": {"status": "no_sign", "sign": None, "confidence": 0.0, "top_k": []}}
-        cuts = self.segmenter.variants(*self.segmenter.last_bounds, self.cfg.tta) or [segment]
+        seg = self.segmenter
+        result = self._best(seg.last_bounds, segment)
+        joined = seg.joined if seg.last_end.get("reason") not in ("held", "fragment") else None
+        if joined is not None and joined[2]:
+            # this sign continued an unsure held part: keep the whole only when it beats both parts
+            first_bounds = (joined[0] - self.cfg.pad_pre_s, joined[1] + self.cfg.pad_post_s)
+            first_seg, own_seg = seg._segment(*first_bounds), seg._segment(*seg.last_own_bounds)
+            if first_seg is not None and own_seg is not None:
+                first, own = self._best(first_bounds, first_seg), self._best(seg.last_own_bounds, own_seg)
+                best_part = max(first["top_k"][0]["confidence"] if first.get("top_k") else 0.0,
+                                own["top_k"][0]["confidence"] if own.get("top_k") else 0.0)
+                whole = result["top_k"][0]["confidence"] if result.get("top_k") else 0.0
+                if not (result["status"] == "ok" and whole >= best_part):
+                    first_event = self._event(first, first_seg, frame,
+                                              {"reason": "held", "duration_s": round(joined[1] - joined[0], 3)})
+                    self.outbox.append(self._event(own, own_seg, frame, {**seg.last_end, "reason": "held"}))
+                    return first_event
+        if (self.cfg.hold_unsure_s > 0 and seg.last_end.get("reason") == "still" and result["status"] != "ok"
+                and not result.get("custom")):
+            seg.hold()
+            return {"event": "sign_held", "state": "idle"}
+        return self._event(result, segment, frame, seg.last_end)
+
+    RESCUE_SHIFTS = ((-0.5, 0.0), (-1.0, 0.0), (0.0, 0.3), (-0.5, 0.3), (0.2, 0.0))  # (start, end) shifts in s
+
+    def _best(self, bounds: tuple[float, float], segment: LandmarkSequence) -> dict:
+        """The sign's result; when unsure (and rescue_cuts is on), the most confident passing result of wider cuts."""
+        result = self._classify(bounds, segment)
+        if not self.cfg.rescue_cuts or result["status"] == "ok":
+            return result
+        best = None
+        for a, b in self.RESCUE_SHIFTS:
+            cut = self.segmenter._segment(bounds[0] + a, bounds[1] + b)
+            if cut is None or cut.num_frames == segment.num_frames:
+                continue
+            r = self._classify((bounds[0] + a, bounds[1] + b), cut)
+            need = self.cfg.rescue_threshold if self.cfg.rescue_threshold is not None else 0.0
+            if r["status"] == "ok" and r["confidence"] >= need and (best is None or r["confidence"] > best["confidence"]):
+                best = r
+        return {**best, "rescued": True} if best is not None else result
+
+    def _classify(self, bounds: tuple[float, float], segment: LandmarkSequence) -> dict:
+        cuts = self.segmenter.variants(*bounds, self.cfg.tta) or [segment]
         probs, emb = self.bundle.probs_and_embeddings(cuts, self.width, self.height)
         probs = probs.mean(axis=0)  # smoothing over cuts
         result = self.bundle.decide(probs, threshold=self.threshold, margin=self.cfg.margin)
@@ -324,13 +417,16 @@ class StreamingRecognizer:
             result = self.custom.decide(emb.mean(axis=0), result) or result
         if result["status"] == "uncertain" and self.fallback is not None:
             result = self.fallback(segment, self.width, self.height, result) or result
+        return result
+
+    def _event(self, result: dict, segment: LandmarkSequence, frame: Frame, end_stats: dict) -> dict:
         if result["status"] == "ok":
             if self.last_word and self.last_word[0] == result["sign"] and frame.t - self.last_word[1] < self.cfg.cooldown_s:
                 result = {**result, "status": "duplicate", "sign": None}
             else:
                 self.last_word = (result["sign"], frame.t)
         span = (float(segment.timestamps_ms[-1]) - float(segment.timestamps_ms[0])) / 1000
-        stats = {**self.segmenter.last_end, "frames": segment.num_frames,
+        stats = {**end_stats, "frames": segment.num_frames,
                  "fps": round((segment.num_frames - 1) / span, 1) if span > 0 else 0.0,
                  "hand_rate": round(float(segment.hand_present.any(axis=1).mean()), 3),
                  "both_hands_rate": round(float(segment.hand_present.all(axis=1).mean()), 3),

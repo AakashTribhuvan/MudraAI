@@ -249,7 +249,7 @@ build a sentence and speak it.
 │   │   ├── streaming.py        SignSegmenter, ModelBundle, StreamingRecognizer (shared by API + benchmarks)
 │   │   ├── fewshot.py          CustomWordBank, FewShotConfig
 │   │   ├── letters.py          fingerspelling features (one frame) + numpy LetterModel (shared by training and the API)
-│   │   ├── preprocessing/      landmark_extractor.py, sequence.py, normalization.py, frame_sampler.py
+│   │   ├── preprocessing/      landmark_extractor.py, sequence.py, normalization.py, frame_sampler.py, resample.py
 │   │   ├── data/               manifest.py (ManifestRow, discovery, labels), splits.py (grouped splits, leakage check)
 │   │   ├── datasets/           isl_dataset.py, augment.py, camera.py (close-up view), distractors.py (fidgets)
 │   │   ├── models/             landmark_mlp.py, sequence_model.py
@@ -596,23 +596,30 @@ input [B, 24, 162]
 | `buffer_s` | 12.0 | frames kept in memory |
 | `commit_threshold` | 0.7 | whole-sign probability needed for `ok` (chosen on validation streams) |
 | `margin` | 0.0 | required top-1 minus top-2 gap |
-| `tta` | 1 | number of slightly shifted cuts averaged (1 = just the segment) |
+| `tta` | 3 | number of slightly shifted cuts averaged (1 = just the segment; 3 since 2026-10-23: fewer wrong words at the same correct rate) |
 | `cooldown_s` | 1.0 | the same word is not added twice within this time |
 | `provisional_s` | 0.5 | interval of live guesses while signing |
 | `still_s` | 0.6 | parked hands: visible hands still this long count as resting wherever they are (0 = off); the rest starts when the stillness began, and only movement starts the next sign |
-| `still_speed` | 0.5 | mean speed of a hand's 21 points (shoulder widths / s) below which it is still |
+| `still_speed` | 0.42 | mean speed of a hand's 21 points (shoulder widths / s) below which it is still (0.5 until 2026-10-23; 0.35 split fewer slow signs but merged signs with hands resting in view) |
 | `still_window_s` | 0.25 | span over which stillness speed is measured (so tracking jitter does not grow with fps); "moving" uses wrist speed over ≥ 0.1 s |
 | `still_below_y` | 0.0 | parking only applies to hands below the shoulder line |
 | `still_keep_s` | 0.0 (off) | a sign ended by stillness keeps this much of the still part. Validation, 10 fps, 0.4 s: normal 93.2 → 94.5%, close-up 90.3 → 91.1%, desk 73.9 → 74.6% correct (wrong +0.3 on desk); not confirmed on test, not enabled |
 | `join_short_s` | 0.5 | a piece shorter than this that ends by stillness is held back (`too_short`, reason `fragment`); if movement resumes within `join_gap_s`, the next sign starts from the piece's start. Validation, 10 fps: within ±0.6 points; fixed the split COMPUTER takes |
 | `join_gap_s` | 1.0 | how soon movement must resume to join a held-back piece |
+| `flush_fragments` | true | a held-back piece that is not continued within `join_gap_s` is classified on its own (before 2026-10-23 it was dropped: a short sign ending in a held handshape, e.g. FOOD at the mouth, added nothing when the hands then left the view) |
+| `hold_unsure_s` | 1.0 | a sign that ends in a still pause with an **unsure** result is held this long (`sign_held` event, ignored by the page); if signing resumes, the whole is classified and kept only when it is `ok` and at least as confident as each part, else both parts are reported (the second with the next frame). Fixes phrases with a pause (I_BATHROOM_GO). A short piece continuing a held part stays held |
+| `rescue_cuts` | true | second look: an unsure sign is classified again with wider cuts (start -0.5 / -1.0 s, end +0.3 s, both, start +0.2 s); the most confident one that is `ok` is used (`result.rescued`). Hands entering the view late, cuts ending early |
+| `rescue_threshold` | null | confidence a second-look result needs (null = `commit_threshold`; 0.8 / 0.9 cost more correct than the wrong words they saved) |
+| `clean_below_fps`, `clean_fps`, `fill_gap_s` | 18, 25, 0.3 | input clean-up before the model (`preprocessing/resample.py`, `ModelBundle.use_cleaning`, applied by the server to live signs **and** taught-word takes): a sign recorded below 18 fps is put on an even 25 fps grid by linear interpolation; a hand lost for up to 0.3 s between two sightings is filled in (`fill_hand_gaps`). Never invents a hand at a sign's start / end or across longer gaps |
 
 **Activity** (`SignSegmenter._activity`): a frame is active if any visible hand is raised or moving.
 If shoulders have never been seen, any visible hand counts as active. **States:** `idle` →
 (`on_s` of activity) → `signing` → (`off_s` of rest, or `max_sign_s`) → classify → `idle`.
 
 **Decision** (`ModelBundle.decide`): argmax `_BACKGROUND_` → `no_sign`; else probability <
-threshold (or gap < margin) → `uncertain`; else `ok`.
+threshold (or gap < margin) → `uncertain`; else `ok`. `StreamingRecognizer` then applies, in order: the
+known-word boundary (off), the taught-word bank, the fallback model (Merged / Auto modes), the second look
+(`rescue_cuts`), the hold of unsure parts (`hold_unsure_s`) and the duplicate rule (`cooldown_s`).
 
 Settings were tuned with `eval_continuous.py --tune` (segmenter grid) and `--tune-threshold-only`
 on **validation** streams only.
@@ -665,6 +672,7 @@ All commands run from the repository root inside `app/backend/.venv`.
 | Re-evaluate runs | `evaluate.py experiments/runs/<glob>` | reports |
 | Export to the API | `export_model.py --run <run dir> --name <model> --data-source combined` | `app/backend/models/<model>/` |
 | Live-use benchmark | `eval_continuous.py --model <dir> --split <csv> [--scenarios normal,closeup,closeup_rest] [--fps-cap N] [--tune | --tune-threshold-only] [--auto-add P] [--config-out F]` | Section 13 |
+| Real-life signing benchmark | `eval_robustness.py [--sets owner other] [--conditions base fps8 fps8+slow ...] [--bank-mode strict|live] [--set JSON] [--repeats N] [--out F]` | Section 13 |
 | Few-shot benchmark | `eval_fewshot.py --model <dir> --split-dir <set with novel.csv>` | writes `training/configs/fewshot.json` |
 | Other dataset | `eval_external.py --model <dir> --manifest <csv> [--mirror]` | accuracy on overlapping labels |
 
@@ -780,9 +788,36 @@ motion blur in the full-body INCLUDE footage.
   minute**. Scenarios: `normal`, `closeup` (simulated close-up webcam), `closeup_rest` (close-up and
   hands resting in view between signs); `--fps-cap` simulates a slow camera.
   Tuning objective: `correct − 3·wrong − 3·extra − 0.5·idle_false_per_min`, on validation only.
+- **Real-life signing** (`eval_robustness.py`, 2026-10-23): every held-out clip is replayed through the live path
+  (segmenter, model, taught-word bank) with the hands out of view before and after, under: camera at 12 / 8 / 6 fps,
+  20% of hand frames lost (`drop`), signed 1.35x faster / 0.75x slower, first 20% missing (`late`), last 15% missing
+  (`early`), 25% smaller movements (`small`). Right = the app adds the label and nothing else (its own auto-add rule).
+  `owner`: the signer's held-out takes plus takes recorded after the split (88); `--bank-mode strict` builds the bank
+  from the split's train takes, `live` from every other recorded take (as the server does). `other`: the split's
+  other test clips (1,495, 314 words).
 - **Few-shot:** model trained without 25 team words; k recordings form prototypes; held-out clips.
 - **Session-independent:** 9 whole INCLUDE recording sessions held out (sessions found by file-number
   runs and first-frame appearance clustering; a signer may appear in more than one session).
+
+### Live path, 2026-10-23 (v15b, `combined_words_v9_app_r6` test, settings of Section 9 vs before)
+
+| Benchmark | Before | After |
+|---|---|---|
+| Owner takes, live bank, as recorded / 12 / 8 / 6 fps (right) | 76.1 / 74.6 / 72.7 / 66.7% | **92.0 / 92.0 / 87.5 / 84.5%** |
+| Owner takes, live bank, 8 fps slow / late / small (right) | 51.1 / 54.9 / 67.0% | **77.3 / 74.2 / 86.4%** |
+| Owner takes, live bank, wrong (as recorded / 8 fps) | 1.1 / 1.5% | 1.1 / 3.4% |
+| Owner takes, strict bank, as recorded / 6 fps (right) | 68.2 / 59.5% | 81.8 / 72.0% |
+| Other test clips, as recorded / 6 fps (right / wrong) | 92.0 / 1.5%, 86.4 / 2.9% | **93.8 / 1.7%, 91.3 / 2.3%** |
+| Continuous streams, 8 fps, normal / close-up rest / desk (INCLUDE pose, right) | 88.7 / 86.0 / 70.6% | 91.3 / 88.5 / 70.3% |
+| Continuous streams, 8 fps, team words normal / desk | 90.6 / 82.9% | 97.2 / 87.8% |
+| Real Chrome, fake webcam of 24 held-out signs, 25 / 12 / 6 fps (right, wrong) | 22, 0 / 20, 0 / 16, 2 | **23, 0 / 23, 0 / 17, 1** |
+
+Per word (owner, live bank, all 10 conditions): 32 of 33 words equal or better (TODAY 50 -> 45%); FOOD 15 -> 67%,
+ME 25 -> 90%, I_LOVE_YOU 35 -> 97%, HELP 42 -> 92%, COMPUTER 52 -> 92%, I_BATHROOM_GO 45 -> 73%. Weak: MY_NAME (27% read
+as MY, then NAME), NEED (12% wrong), FRIEND and TODAY (~45%). All 314 words on other test clips: 86 better, 215 the
+same, 13 slightly worse. Sign end -> word on the page: about 0.1 s, unchanged. The taught-word bank is worth
++10 points on the owner's takes (strict vs live bank); averaging a word's takes beat nearest-take matching (tried, not
+kept: knn 3 -3 points, knn 1 +13 points wrong).
 
 ### Current results (deployed v6, held-out test, corrected labels)
 
@@ -893,6 +928,9 @@ v15b is deployed (2026-10-23); v13b and older are kept for rollback (`MUDRA_MODE
 
 ### Recommended next steps (2026-10-16, in order)
 
+00. **Restart Chrome on the development laptop** (2026-10-23): it had run since 21 Oct 19:43, before the "High
+    performance" GPU setting, so the owner's sessions still drew with the Intel UHD (56-138 ms per frame, 5-7 frames
+    per second at the server); plug in the charger and add light (the webcam itself gave 5-7 fps). Then test live.
 0. **Meeting test** (2026-10-21, needs the owner, ~20 min, `docs/MEETING_INTEGRATION.md` "Setup"): load the extension,
    click its button in a real Meet call with a second device (does tab capture start, is the meeting still audible,
    do captions and signs follow the speaker), install VB-Cable and run Test route, then have the other person confirm
@@ -1104,6 +1142,30 @@ that need the model or landmark data skip automatically when those files are mis
 ---
 
 ## 21. Change log (newest first)
+
+### 2026-10-23 · Live recognition: same model (v15b), better live path (pushed after `8f278c3`)
+- Owner: signs often need 2-3 tries; only re-teaching a sign makes it work; no new model wanted. Found:
+  (1) the owner's Chrome still ran since 21 Oct 19:43 on the Intel UHD (56-138 ms per frame, 5-7 frames/s at the
+  server; laptop on battery); (2) the live path, not the model, lost most signs: on held-out owner takes the whole
+  clip was right at ~99% while the live replay added the right word to 68%. Causes: a short sign ending in a held
+  handshape was held back as a fragment and then dropped (FOOD); a phrase with a still pause was cut in two unsure
+  halves (I_BATHROOM_GO); hands entering late / slow signing gave cuts the model read as "no sign"; slow cameras
+  gave repeated frames and lost hands. Today's takes were recorded at ~11 fps (the Intel GPU) and signed somewhat
+  differently, which is why only the bank (with the new takes) recognised them: the bank already uses **all** takes
+  of a word (the mean of their embeddings), not only the latest.
+- Fixes (inference only, `training/configs/streaming.json`, Section 9): `flush_fragments`, `hold_unsure_s` 1.0 with
+  part-vs-whole choice, `rescue_cuts` (second look), input clean-up (`preprocessing/resample.py`: resample below 18 fps
+  to 25 fps, fill hand gaps up to 0.3 s; also applied to taught-word takes), `tta` 3, `still_speed` 0.42. Chosen on
+  validation streams + owner takes, confirmed on test (Section 13: owner takes 76.1 -> 92.0% as recorded, 66.7 ->
+  84.5% at 6 fps; other test clips at 6 fps 86.4 -> 91.3%, wrong 2.9 -> 2.3%; real Chrome 24 signs at 12 fps 20 -> 23).
+  Tried, not kept: nearest-take bank matching, `still_s` 0.8 / 1.0, `still_speed` 0.35 (desk streams -6 points),
+  `rescue_threshold` 0.8 / 0.9, `off_s` 0.5.
+- New: `training/scripts/eval_robustness.py` (real-life signing benchmark), `bundle.use_cleaning()` in the server and
+  `eval_continuous.py`; `sign_held` stream event (ignored by the page); `tools/live_benchmark/bench_score.py` reads
+  `CAMDIR`. Communicate: the slow-tracking hint names the on-chip graphics first and says to restart Chrome.
+- Open: MY_NAME is often added as MY + NAME (the first part is confidently MY); NEED 12% wrong; FRIEND, TODAY ~45%;
+  desk streams (hands resting in view) unchanged at ~70-88%. More takes of these words would help the bank.
+- Tests: backend 101 (+4 segmenter tests), training 58 (+3 resample tests), frontend 51, build OK.
 
 ### 2026-10-23 · Communication (Sign -> Voice) phone layout: tall camera, sign and meaning under it (pushed after `b4a982d`)
 - Owner (with a sketch): on phones the camera was a small wide box and the meaning was below the bottom nav. Fix
