@@ -67,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         recognizer = SignRecognizer(settings.model_dir, settings.device, settings.uncertain_threshold)
         bundle = ModelBundle(settings.model_dir, str(recognizer.device))
         bundle.threshold = recognizer.threshold
+        bundle.use_cleaning(segmenter_cfg)  # live signs and taught-word takes get the same input clean-up
         log.info("Loaded model %s (%d signs) on %s", recognizer.name, len(recognizer.classes), recognizer.device)
     except FileNotFoundError as exc:
         load_error = f"Model files not found in {settings.model_dir}: {exc.filename}"
@@ -234,7 +235,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     session_dir = settings.session_dir
     # Browser diagnostics written to the events log (numbers and the camera's name; never landmarks)
-    DIAG_KEYS = ("camera_fps", "tracking_fps", "inference_ms", "delegate", "gpu", "integrated_gpu", "camera", "width", "height")
+    DIAG_KEYS = ("camera_fps", "tracking_fps", "inference_ms", "delegate", "gpu", "integrated_gpu", "hand_miss", "camera",
+                 "width", "height")
     DIAG_LOG_EVERY_S = 60.0
     max_session_frames = 30 * 60 * 20  # 20 minutes at 30 fps
 

@@ -272,6 +272,7 @@ def main() -> None:
     cfg = SegmenterConfig.load(cfg_path if cfg_path.exists() else CFG_PATH)
     if args.set:
         cfg = SegmenterConfig(**{**cfg.to_dict(), **json.loads(args.set)})
+    bundle.use_cleaning(cfg)  # input clean-up settings (fixed during tuning), as the server applies them
     if args.tune_threshold_only:
         args.tune = True
     if args.tune:

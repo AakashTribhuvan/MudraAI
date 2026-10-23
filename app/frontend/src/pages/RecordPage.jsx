@@ -100,6 +100,7 @@ export default function RecordPage() {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (ctx) {
+      handTracker.fitCanvas(canvas, results)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       handTracker.drawPose(ctx, results.poseLandmarks, canvas.width, canvas.height, true)
       ;(results.multiHandLandmarks || []).forEach((lm) => handTracker.drawSkeleton(ctx, lm, canvas.width, canvas.height, true))

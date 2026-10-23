@@ -51,6 +51,8 @@ const CAMERA_ERRORS = {
 const RULE_SIGNS = ['HELLO', 'WATER', 'NAMASTE', 'THANK_YOU', 'YES', 'NO', 'PEACE', 'HELP']
 // Close-up framing: shoulders wider than this share of the frame, or lower than this height, leave no room for the hands
 const FRAMING = { maxShoulderWidth: 0.6, maxShoulderY: 0.72 }
+// the "camera loses your hands" hint: share of raised wrists (body model) with no hand found near them (handTracker)
+const HAND_MISS_HINT = 0.5 // clear test videos at 25 fps never reach it (highest 0.48 over 90-frame windows)
 
 export default function CommunicatePage() {
   // Mode toggle: 'sign-to-speech' (ISL -> Voice) vs 'speech-to-sign' (Voice/Text -> 3D ISL Avatar)
@@ -489,6 +491,7 @@ export default function CommunicatePage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    handTracker.fitCanvas(canvas, results)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     const hasHands = results.multiHandLandmarks && results.multiHandLandmarks.length > 0
@@ -950,13 +953,21 @@ export default function CommunicatePage() {
 
               {cameraActive && !cameraIssue && !framing && trackerFps > 0 && trackerFps < LOW_FPS && (
                 <div className="communicate-hint absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
-                  {slowReason === 'camera'
+                  {trackerDiag?.integratedGpu
+                    ? `Hand tracking is slow (${trackerFps} fps): Chrome draws with the on-chip graphics (${trackerDiag.gpu}). If this computer also has an NVIDIA or AMD card, set Chrome to "High performance" in Windows Settings > System > Display > Graphics, then restart Chrome (type chrome://restart in the address bar).${slowReason === 'camera' ? ` The camera also sends only ${trackerDiag.cameraFps} frames per second: add light in front of you.` : ''}`
+                    : slowReason === 'camera'
                     ? `Your camera sends only ${trackerDiag.cameraFps} frames per second. Webcams slow down in dim light: add light in front of you.`
                     : trackerDiag?.integratedGpu
                     ? `Hand tracking is slow (${trackerFps} fps): the browser uses the on-chip graphics (${trackerDiag.gpu}). If this computer also has an NVIDIA or AMD card, set Chrome to "High performance" in Windows Settings > System > Display > Graphics, then restart Chrome.`
                     : trackerDiag?.delegate === 'CPU'
                     ? `Hand tracking runs on the CPU (${trackerFps} fps). Turn on hardware acceleration in the browser settings, or close other tabs.`
                     : `Hand tracking is slow (${trackerFps} fps, ${trackerDiag?.inferenceMs ?? '?'} ms per frame). Close other tabs or apps using the GPU.`}
+                </div>
+              )}
+
+              {cameraActive && !cameraIssue && !framing && !(trackerFps > 0 && trackerFps < LOW_FPS) && trackerDiag?.handMissRate >= HAND_MISS_HINT && (
+                <div className="communicate-hint absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-md rounded-2xl bg-amber-400/95 px-4 py-2.5 text-center text-sm font-semibold text-amber-950 shadow-lg">
+                  {`The camera loses your hands (${Math.round(trackerDiag.handMissRate * 100)}% of the time they are raised). Add light in front of you, keep both hands inside the picture and a little away from your face, and sign a little slower.`}
                 </div>
               )}
 
@@ -1110,7 +1121,6 @@ export default function CommunicatePage() {
           <div className="communicate-right lg:col-span-5 space-y-5 lg:pt-0">
             <div className="communicate-results glass-card rounded-3xl p-5 sm:p-6 border border-mudra-lavender-200/80 shadow-lg space-y-7">
               <div className="communicate-mode-switch"><InputModeSwitch mode={inputMode} onChange={changeInputMode} /></div>
-
               {inputMode === 'words' && (
                 <div className="space-y-2 rounded-2xl border border-mudra-lavender-200 bg-white/80 p-3">
                   <label htmlFor="recognition-model" className="block text-xs font-bold text-mudra-indigo-700">

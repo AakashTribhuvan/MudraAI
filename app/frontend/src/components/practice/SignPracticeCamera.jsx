@@ -75,6 +75,7 @@ export default function SignPracticeCamera({ sign, label, kind }) {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (ctx) {
+      handTracker.fitCanvas(canvas, results)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       handTracker.drawPose(ctx, results.poseLandmarks, canvas.width, canvas.height, true)
       for (const lm of results.multiHandLandmarks || []) handTracker.drawSkeleton(ctx, lm, canvas.width, canvas.height, true)

@@ -98,6 +98,10 @@ REM --- Speech model for the meeting features (downloaded once, not in git; the 
 "%VENV_DIR%\Scripts\python.exe" "%~dp0tools\setup\download_asr_model.py"
 if errorlevel 1 echo Speech model download failed: meeting captions stay off until tools\setup\download_asr_model.py succeeds.
 
+REM --- Speech model for the meeting features (downloaded once, not in git; the app also runs without it) ---
+"%VENV_DIR%\Scripts\python.exe" "%~dp0tools\setup\download_asr_model.py"
+if errorlevel 1 echo Speech model download failed: meeting captions stay off until tools\setup\download_asr_model.py succeeds.
+
 REM --- Frontend setup ---
 set "FRONTEND_DIR=%~dp0app\frontend"
 set "FRONTEND_DEPS_FILE=%FRONTEND_DIR%\.deps_ok"
