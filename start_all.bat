@@ -52,7 +52,7 @@ if exist "%BACKEND_DIR%\requirements-runtime.txt" if exist "%BACKEND_DEPS_FILE%"
 
 REM A stale .deps_ok marker must not hide a broken/missing app runtime (e.g. FastAPI absent).
 if exist "%VENV_DIR%\Scripts\python.exe" (
-    "%VENV_DIR%\Scripts\python.exe" -c "import fastapi, uvicorn, pydantic, sqlalchemy, alembic, numpy, sklearn, joblib, yaml, torch, mudra_ml, google.auth, dotenv" >nul 2>nul
+    "%VENV_DIR%\Scripts\python.exe" -c "import fastapi, uvicorn, pydantic, multipart, sqlalchemy, alembic, numpy, sklearn, joblib, yaml, torch, mudra_ml, google.auth, dotenv" >nul 2>nul
     if errorlevel 1 set "BACKEND_NEEDS_INSTALL=1"
 )
 
@@ -72,7 +72,7 @@ if "%BACKEND_NEEDS_INSTALL%"=="1" (
         pause
         exit /b 1
     )
-    "%VENV_DIR%\Scripts\python.exe" -c "import fastapi, uvicorn, pydantic, sqlalchemy, alembic, numpy, sklearn, joblib, yaml, torch, mudra_ml, google.auth, dotenv" >nul 2>nul
+    "%VENV_DIR%\Scripts\python.exe" -c "import fastapi, uvicorn, pydantic, multipart, sqlalchemy, alembic, numpy, sklearn, joblib, yaml, torch, mudra_ml, google.auth, dotenv" >nul 2>nul
     if errorlevel 1 (
         echo ERROR: Runtime dependencies are still incomplete; see the setup output above.
         pause
@@ -93,6 +93,10 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+
+REM --- Speech model for the meeting features (downloaded once, not in git; the app also runs without it) ---
+"%VENV_DIR%\Scripts\python.exe" "%~dp0tools\setup\download_asr_model.py"
+if errorlevel 1 echo Speech model download failed: meeting captions stay off until tools\setup\download_asr_model.py succeeds.
 
 REM --- Frontend setup ---
 set "FRONTEND_DIR=%~dp0app\frontend"
@@ -139,44 +143,65 @@ if "%FRONTEND_NEEDS_INSTALL%"=="1" (
     echo Frontend dependencies are already up to date.
 )
 
-if /i "%~1"=="judges" goto JUDGES_TUNNEL
-
-REM --- Launch services ---
-start "MUDRA Backend" cmd /k "cd /d ""%BACKEND_DIR%"" && ""%VENV_DIR%\Scripts\python.exe"" main.py"
-
-cd /d "%FRONTEND_DIR%"
 if /i "%~1"=="electron" (
-    echo Starting SignLine desktop app. Keep the backend window open while you use it.
-    set "ELECTRON_RUN_AS_NODE="
-    npm run electron:dev
-    exit /b
+    goto ELECTRON_APP
 )
 
-start "MUDRA Frontend" cmd /k "cd /d ""%FRONTEND_DIR%"" && npm run dev -- --host"
-
-echo.
-echo MUDRA project started.
-echo Backend: http://localhost:8000
-echo Frontend: http://localhost:3000
-echo.
-pause
-goto :EOF
+REM The normal launcher starts the full judges-ready web app and tunnel.
+goto JUDGES_TUNNEL
 
 :JUDGES_TUNNEL
 echo.
-echo Starting SignLine for judge access: backend + public web frontend.
+echo Starting SignLine: backend + web frontend + public tunnel.
 echo.
-powershell -NoProfile -Command "try { Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>nul
+powershell -NoProfile -Command "try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2; if ($health.model_loaded -and $health.model -eq 'isl_mudra_combined_v15b_bilstm') { exit 0 } else { exit 2 } } catch { exit 1 }" >nul 2>nul
+if errorlevel 2 (
+    echo ERROR: A backend is already running on port 8000 with a different model.
+    echo Close its MUDRA Backend window, then run this launcher again to load v15b.
+    pause
+    exit /b 1
+)
 if errorlevel 1 (
     start "MUDRA Backend" cmd /k "cd /d ""%BACKEND_DIR%"" && ""%VENV_DIR%\Scripts\python.exe"" main.py"
+    echo Waiting for the backend and v15b model to become ready...
+    powershell -NoProfile -Command "$ready = $false; for ($i = 0; $i -lt 180; $i++) { try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2; if ($health.status -eq 'ok' -and $health.model_loaded -and $health.model -eq 'isl_mudra_combined_v15b_bilstm') { $ready = $true; break } } catch { }; Start-Sleep -Seconds 1 }; if (-not $ready) { exit 1 }"
+    if errorlevel 1 (
+        echo ERROR: Backend did not become ready on port 8000 within 180 seconds.
+        echo Check the MUDRA Backend window for startup errors.
+        pause
+        exit /b 1
+    )
 ) else (
     echo Reusing the backend already running on port 8000.
 )
+
+powershell -NoProfile -Command "$listener = Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -First 1; if ($listener) { exit 1 } else { exit 0 }" >nul 2>nul
+if errorlevel 1 (
+    echo ERROR: Port 3000 is already in use.
+    echo Close the existing frontend window before starting another tunnel session.
+    pause
+    exit /b 1
+)
+
 set "MUDRA_PUBLIC_TUNNEL=1"
 set "VITE_API_URL="
-start "MUDRA Judges Frontend" cmd /k "cd /d ""%FRONTEND_DIR%"" && npm run dev -- --host 0.0.0.0"
+start "MUDRA Frontend" cmd /k "cd /d ""%FRONTEND_DIR%"" && npm run dev -- --host 0.0.0.0 --port 3000 --strictPort"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\start_judges_tunnel.ps1"
-exit /b %errorlevel%
+if errorlevel 1 (
+    echo.
+    echo ERROR: The public tunnel stopped. Review the diagnostics above before retrying.
+    pause
+    exit /b 1
+)
+exit /b 0
+
+:ELECTRON_APP
+start "MUDRA Backend" cmd /k "cd /d ""%BACKEND_DIR%"" && ""%VENV_DIR%\Scripts\python.exe"" main.py"
+cd /d "%FRONTEND_DIR%"
+echo Starting SignLine desktop app. Keep the backend window open while you use it.
+set "ELECTRON_RUN_AS_NODE="
+npm run electron:dev
+exit /b
 
 :BACKEND_TUNNEL
 echo.

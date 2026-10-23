@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "MUDRA for Meet and Zoom",
+  "short_name": "MUDRA",
+  "version": "0.1.0",
+  "description": "ISL avatar and live captions for what others say in Google Meet and Zoom Web, and your signs spoken into the meeting. Runs with the local MUDRA app.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "MUDRA: start ISL captions for this meeting tab",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "Start or stop MUDRA ISL captions on this meeting tab"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://meet.google.com/*",
+    "https://app.zoom.us/*",
+    "https://*.zoom.us/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://meet.google.com/*",
+        "https://app.zoom.us/wc/*",
+        "https://*.zoom.us/wc/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "panel.html",
+        "panel.js"
+      ],
+      "matches": [
+        "https://meet.google.com/*",
+        "https://app.zoom.us/*",
+        "https://*.zoom.us/*"
+      ]
+    }
+  ],
+  "options_page": "options.html"
+}

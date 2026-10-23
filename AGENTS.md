@@ -15,6 +15,9 @@
    `training/src/mudra_ml` and is used by both the API and the benchmarks; change it there.
 5. **Privacy:** landmarks only. Never commit videos, photos, real people's landmark files,
    `data/processed/`, `data/metadata/` or `app/backend/var/`, and never identify people from faces.
+   One owner-approved exception (2026-10-21): SignLine Emergency stores a user's own gesture demonstration
+   video, only after explicit recording consent, under `app/backend/var/emergency_media/`, for that device
+   only; it is never committed, logged, analysed or used for training (`docs/SIGNLINE_EMERGENCY.md`).
 6. **Leakage:** near-duplicate recordings (copies, rotated photos, frames of one video) must stay in one
    split; use the grouping in `make_splits.py` / `train_letters.py`.
 7. **Before deploying a word model**, compare it with the deployed one on the same validation and test

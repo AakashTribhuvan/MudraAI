@@ -31,6 +31,9 @@ import { EmergencyLayout } from './features/emergency/components'
 import EmergencyStartPage from './pages/emergency/EmergencyStartPage'
 import EmergencySessionPage from './pages/emergency/EmergencySessionPage'
 import EmergencyGesturesPage from './pages/emergency/EmergencyGesturesPage'
+import EmergencyGestureDetailPage from './pages/emergency/EmergencyGestureDetailPage'
+import AvatarQAPage from './pages/dev/AvatarQAPage'
+import MeetingPanelPage from './pages/meeting/MeetingPanelPage'
 import EmergencyAboutPage from './pages/emergency/EmergencyAboutPage'
 import { ResponderDashboardPage, ResponderIncidentPage, ResponderLoginPage } from './pages/emergency/ResponderPages'
 
@@ -177,7 +180,24 @@ function useStartup() {
   return { phase, retry: run, skip }
 }
 
+// The meeting panel runs inside Google Meet / Zoom (extension overlay, add-on side panel) or a small pop-out window:
+// no start-up animation, navigation, sign-in or SOS button there.
+const MEETING_SURFACE = /^\/meet-panel(\/|$)/
+
 export default function App() {
+  if (typeof window !== 'undefined' && MEETING_SURFACE.test(window.location.pathname)) {
+    return (
+      <AccessibilityProvider>
+        <BrowserRouter>
+          <Routes><Route path="/meet-panel/*" element={<MeetingPanelPage />} /></Routes>
+        </BrowserRouter>
+      </AccessibilityProvider>
+    )
+  }
+  return <FullApp />
+}
+
+function FullApp() {
   const AppRouter = import.meta.env.MODE === 'electron' ? HashRouter : BrowserRouter
   const { phase, retry, skip } = useStartup()
   return (
@@ -191,6 +211,7 @@ export default function App() {
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/legal/:doc" element={<LegalPage />} />
+            {import.meta.env.DEV && <Route path="/dev/avatar-qa" element={<AvatarQAPage />} />}
             <Route path="/app/*" element={<RequireRole role="user"><UserRoutes /></RequireRole>} />
             <Route path="/admin/*" element={<RequireRole role="admin"><AdminRoutes /></RequireRole>} />
             {/* SignLine Emergency: open without signing in */}
@@ -198,6 +219,7 @@ export default function App() {
               <Route index element={<EmergencyStartPage />} />
               <Route path="session/:sessionId" element={<EmergencySessionPage />} />
               <Route path="gestures" element={<EmergencyGesturesPage />} />
+              <Route path="gestures/:gestureId" element={<EmergencyGestureDetailPage />} />
               <Route path="about" element={<EmergencyAboutPage />} />
             </Route>
             <Route path="/settings/emergency-gestures" element={<Navigate to="/emergency/gestures" replace />} />

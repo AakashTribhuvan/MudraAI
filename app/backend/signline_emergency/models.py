@@ -100,7 +100,8 @@ class EmergencySession(Base):
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     events: Mapped[list[SignEvent]] = relationship(back_populates="session", order_by="SignEvent.seq_index", cascade="all, delete-orphan")
-    incident: Mapped[EmergencyIncident | None] = relationship(back_populates="session", uselist=False)
+    incident: Mapped[EmergencyIncident | None] = relationship(back_populates="session", uselist=False,
+                                                              cascade="all, delete-orphan")  # retention deletes both
 
 
 class SignEvent(Base):
@@ -153,6 +154,14 @@ class CustomGesture(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     activation: Mapped[dict] = mapped_column(JSON, default=dict)  # {require_confirmation, cooldown_s}
     last_triggered_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # optional demonstration video (services/media_store.py: a random storage key, never the user's file name)
+    video_storage_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    video_mime_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    video_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    video_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recording_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    recording_consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    emergency_contact_id: Mapped[str | None] = mapped_column(String(40), nullable=True)  # config/emergency_contacts.json
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
@@ -208,6 +217,17 @@ class EmergencyIncident(Base):
     location: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     priority: Mapped[str | None] = mapped_column(String(10), nullable=True)  # set only by explicit rules
     demo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # prepared from a personal gesture (POST /gestures/{id}/request-assistance)
+    gesture_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    emergency_contact_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    emergency_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # the incident's own encrypted copy of the gesture video, only with the user's sharing consent
+    video_storage_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    video_mime_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    video_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sharing_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    sharing_consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    video_sharing_status: Mapped[str] = mapped_column(String(20), default="NOT_ATTACHED")  # NOT_ATTACHED | ATTACHED | DELIVERED | FAILED
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 

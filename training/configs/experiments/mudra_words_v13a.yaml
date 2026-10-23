@@ -1,0 +1,16 @@
+# v13a candidate: v12c + every recorded take (182 takes / 30 signs on 2026-10-21; new: YES, NO, WHAT_HAPPENED,
+# SLEEP_WELL, I_AM_NOT_DEAF, I_BATHROOM_GO, WOULD_YOU_LIKE_COFFEE, FOOD_TASTE_GOOD, MY_BAG_COLOR_BLUE,
+# MY_MOTHER_COOKS_FOOD; more BAG), each training take listed 4 times. Starts from v12c's weights.
+#     python training/scripts/build_app_split.py --base combined_words_v3 --name combined_words_v8_app_r4 --train-repeat 4
+#     python training/scripts/train.py --config mudra_words_v13a.yaml --name combined_v13a
+base: mudra_words_desk.yaml
+init_from: experiments/runs/combined_v12c_20261021-102112
+
+data:
+  split_dir: data/metadata/splits/combined_words_v8_app_r4
+
+train:
+  epochs: 60
+  warmup_epochs: 2
+  patience: 25
+  lr: 0.0001

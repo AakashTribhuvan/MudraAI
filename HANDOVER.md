@@ -6,12 +6,12 @@
 
 | Field | Value |
 |---|---|
-| Document version | 17 |
+| Document version | 20 |
 | Last updated | 2026-10-23 |
-| Last updated at commit | Local OAuth success checkpoint after `8a80853`; not committed |
-| Deployed models | words: `app/backend/models/isl_mudra_combined_v11a_bilstm` (324 words + `_BACKGROUND_`; v10c and v9 kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
+| Last updated at commit | Local merge of Addy/Mudra updates through `8f278c3` plus local SignLine and launcher reliability updates; not committed |
+| Deployed models | words: `app/backend/models/isl_mudra_combined_v15b_bilstm` (339 signs + `_BACKGROUND_`; v13b and older kept for rollback); letters: `isl_letters_v1` (A-Z); phrases: `isl_phrases_v1_bilstm` (99); experimental, opt-in: `mudra_intro_static_pose_medoids_v1` (teammate's static poses, 10 live words) |
 | Live settings | `training/configs/streaming.json` (commit threshold 0.7), `training/configs/fewshot.json` |
-| Tests | Current check: 21 frontend passing and 3 static-pose tests passing. Full backend tests are blocked by this machine's Torch DLL policy (`WinError 4551`) and missing `tensorboard`; full Ruff checks report existing issues in the upstream files. Changed backend files pass Ruff. |
+| Tests | After integrating upstream: 51 frontend tests passed, production build and changed backend syntax checks passed. Local smoke test loaded v15b and returned HTTP 200 from `/health`, `/models`, and `/speech/status` (ASR model not downloaded). Full backend pytest is unavailable in the local runtime environment; training-data tests also require OpenCV (`cv2`). |
 | Repository | `https://github.com/Addy-coder786/Mudra` (remote `mudra`); older pushes: `Addy-coder786/ISL_Addy` (remote `origin`) |
 | Overall state | Recognition is accurate on new takes by **signers seen in training**; accuracy for new people is unmeasured (about 67% on unseen recording sessions); **live use on a real laptop webcam is not yet reliable** (Section 16). Audit: `docs/AUDIT_2026-10-13.md` |
 
@@ -135,9 +135,13 @@ build a sentence and speak it.
 |---|---|---|
 | Web app, rebranded **SignLine** (Section 5.2) | Working | demo sign-in with User / Admin roles; User: Home, Communication, Learning, Game Mode, Progress, Teach a sign, Settings; Admin: Overview, Users, Content, Records, Reports, Game rules, Settings; checked in desktop and mobile screenshots |
 | **SignLine Emergency** (SOS circle, bottom-right of every page) | **Prototype, demo mode** | buttons / simulated signs / personal gestures → rule-based report with provenance → user confirms → mock delivery to an in-app responder desk; contacts no one; 29 tests; checked in desktop and mobile screenshots. `docs/SIGNLINE_EMERGENCY.md` |
+| **Meetings: Google Meet / Zoom** (`docs/MEETING_INTEGRATION.md`) | **Prototype, not yet tried in a real call** | Chrome extension (`app/meeting-extension`) shows the MUDRA panel in Meet / Zoom Web and sends the tab audio to local speech recognition (sherpa-onnx); the avatar signs stable phrases while people speak (first sign 1.4-1.9 s after the word in tests), signs -> local Windows voice -> VB-Cable as the meeting microphone. Tested: unit tests, a recorded-voice end to end, the extension on a mock meeting page including real tab capture (started by its shortcut with real keystrokes), the voice through VB-Cable 4.5 (installed, Test route verified, words transcribed back from CABLE Output). Not tested: a real call, a second participant. Meet add-on / Zoom App: code only, need registration |
 | Accounts and roles | **Demo only** | no server accounts or passwords; role kept in the browser; anyone can open Admin (Section 16) |
 | Game Mode | Working (local) | 70 lessons over the 314 words, real recorded examples, quizzes, XP / streak / badges in localStorage; no leaderboard (needs accounts) |
-| Recognition model **v11a** | Deployed 2026-10-20 | v10c + all 93 recorded takes (17 words; new FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME), takes x6, fine-tuned from v10c: owner's held-out takes 30/34 right and **0 wrong** (no mix-ups), other test 1,459 right / 13 wrong (v10c 1,456 / 18; v9 1,461 / 14) |
+| Recognition model **v15b** | Deployed 2026-10-23 | v13b + all 214 recorded takes (33 signs; new MY, NAME, MY_NAME), takes x6, fine-tuned from v13b: owner's held-out takes 62/66, 0 wrong; other test 1,451 right / 15 wrong; live 12 fps benchmark 27/32, 0 wrong |
+| Recognition model **v13b** | Deployed 2026-10-21 (evening), now rollback | v12c + all 182 recorded takes (30 signs; new YES, NO, WHAT_HAPPENED, SLEEP_WELL, I_AM_NOT_DEAF, I_BATHROOM_GO, WOULD_YOU_LIKE_COFFEE, FOOD_TASTE_GOOD, MY_BAG_COLOR_BLUE, MY_MOTHER_COOKS_FOOD; more BAG), takes x6, fine-tuned from v12c: owner's held-out takes 57/60 right and **0 wrong** (v12c 35/60), other test 1,460 right / 16 wrong (v12c 1,457 / 14) |
+| Recognition model **v12c** | Deployed 2026-10-21, now rollback | v11a + all 103 recorded takes (19 words; new I_AM_FINE, I_LOVE_YOU), takes x4, fine-tuned from v11a: owner's held-out takes 35/38 right and **0 wrong** (v11a 30/38), other test 1,457 right / 14 wrong (v11a 1,459 / 13) |
+| Recognition model **v11a** | Deployed 2026-10-20, now rollback | v10c + all 93 recorded takes (17 words; new FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME), takes x6, fine-tuned from v10c: owner's held-out takes 30/34 right and **0 wrong** (no mix-ups), other test 1,459 right / 13 wrong (v10c 1,456 / 18; v9 1,461 / 14) |
 | Recognition model **v10c** | Deployed 2026-10-20, now rollback | v9 + all 47 recorded takes (9 words, new FROM, PUNE), takes x6, fine-tuned from v9: owner's held-out takes 8/18 → 14/18 (test 5/9 → 8/9), other test 1,461 → 1,456 right (-0.3 points). `compare_word_models.py` |
 | Recognition model **v9** | Deployed 2026-10-18, now rollback | v8 recipe + the app's 30 recorded takes; test streams -0.2 to +2.2 points vs v8 everywhere; the owner's own takes 0-17% → 67-83% (6 clips, same session). `docs/SCALING_VOCABULARY.md` |
 | **Model system** (teammate's design, MitIndia `work/static-landmark-tracking`) | Selector in Communication *Words*; v9 default | `GET /models` lists each model with its measured accuracy; the teammate's static-pose model is opt-in: **0 of 22** shared-word signs right on our test clips vs **22 of 22** for v9, false alarms on 0.7% of other signs (`compare_static_model.py`). Since 8105c5e also the teammate's common-word (17) and ISL500 (14) video models and the Merged (v9 + 12 teammate words) and Auto (Merged + letters) modes; see `docs/TEAMMATE_MODELS.md` |
@@ -164,7 +168,10 @@ build a sentence and speak it.
 ├── HANDOVER.md                 this document (update at every push)
 ├── AGENTS.md / CLAUDE.md       short pointers for AI coding tools -> HANDOVER.md
 ├── README.md                   public overview, quick start, results
-├── start_all.bat               Windows launcher: creates .venv, installs deps, starts both servers
+├── start_all.bat               Windows launcher: prepares deps, waits for v15b backend readiness, starts web frontend + Cloudflare judges tunnel
+├── tools/                      setup/ (download_asr_model.py, chrome_gpu_high_performance.ps1), live_benchmark/ (fake
+│                               webcam of held-out signs -> real Communicate page on this PC's GPU), meeting_tests/
+│                               (speech, VB-Cable route, extension on a mock meeting); outputs in experiments/tools/
 ├── .env.example                backend environment variables (all optional)
 ├── .githooks/pre-push          refuses pushes that do not update HANDOVER.md
 ├── app/
@@ -182,20 +189,22 @@ build a sentence and speak it.
 │   │   │   ├── static_pose.py  teammate's still-pose medoid model + live adapter (ported from MitIndia, logic unchanged)
 │   │   │   ├── static_top10.py, isl500_video.py  teammate's SVM features + video-word adapter (ported, 8105c5e)
 │   │   │   ├── extra_models.py  teammate models + the Merged router; auto_mode.py words + letters; safe_joblib.py
-│   │   │   └── library.py      letters (LetterModel + example hand shapes) and phrases (second SignRecognizer) for /library, /letters, /phrases
-│   │   ├── models/isl_mudra_combined_v8_desk_bilstm/   model.pt (state dict) + model_card.json (deployed; v6 beside it for rollback)
+│   │   │   ├── library.py      letters (LetterModel + example hand shapes) and phrases (second SignRecognizer) for /library, /letters, /phrases
+│   │   │   └── speech.py, speech_api.py  meeting speech: /tts (Windows voices), /asr + /captions rooms (sherpa-onnx streaming ASR)
+│   │   ├── models/isl_mudra_combined_v15b_bilstm/      model.pt (state dict) + model_card.json (deployed; v13b and older kept for rollback)
 │   │   ├── models/isl_letters_v1/, isl_phrases_v1_bilstm/   letter MLP (weights.npz) and phrase BiLSTM (docs/SIGN_LIBRARY.md)
 │   │   ├── signline_emergency/ SignLine Emergency (docs/SIGNLINE_EMERGENCY.md): config.py, db.py, models.py, migrations/
 │   │   │                       (Alembic), config/*.json (rules, questions, buttons, demo scenarios), services/ (recognition
 │   │   │                       providers, sequence manager, context engine, questions, profile builder, workflow, state
 │   │   │                       machine, dispatch, location, auth, audit), api/ (router), seed.py, retention.py
 │   │   ├── alembic.ini, .env.example   migrations config; SIGNLINE_EM_* variables
-│   │   ├── var/                local emergency database + generated demo responder password (git-ignored)
+│   │   ├── var/                local emergency database + generated demo responder password; asr_models/ (git-ignored)
 │   │   └── tests/              test_api.py (API, streaming, recordings, references), emergency/ (29 tests), conftest.py
+│   ├── meeting-extension/      Chrome MV3 extension for Meet / Zoom Web: tab audio capture (offscreen), overlay (docs/MEETING_INTEGRATION.md)
 │   └── frontend/               React 18 + Vite 6 + Tailwind 3 + Three.js; Electron shell in electron/
 │       ├── public/models/      hand_landmarker.task, pose_landmarker_lite.task, face_landmarker.task
 │       ├── public/wasm/        MediaPipe Tasks Vision WASM runtime (served locally)
-│       ├── public/ybot.glb     avatar model; public/assets/mudra-intro.mp4 intro video
+│       ├── public/ybot.glb     avatar model
 │       ├── public/manifest.webmanifest   installable web app (brand/signline-icon-192/512.png, Emergency shortcut)
 │       └── src/
 │           ├── App.jsx, main.jsx, index.css    react-router routes, role guards, start-up loader (Section 5.2)
@@ -204,14 +213,14 @@ build a sentence and speak it.
 │           │                   (practice history), SettingsPage, ComingSoonPage; auth/ (Welcome, SignIn, Register);
 │           │                   user/ (UserHomePage, LearningPage, ProgressHubPage); game/ (GamePage, GameLessonPage);
 │           │                   admin/ (AdminOverviewPage, AdminPages: Users, Content, Records, Reports, Game rules);
-│           │                   legal/LegalPage (7 drafts); emergency/ (Start, Session, Gestures, About, Responder pages).
-│           │                   HomePage + components/home/* = old landing page, unused
+│           │                   legal/LegalPage (7 drafts); emergency/ (Start, Session, Gestures, About, Responder pages);
+│           │                   meeting/ (MeetingPanelPage); dev/ (AvatarQAPage, development builds only)
 │           ├── features/       emergency/ (api.js client, EmergencySOSButton, shared components); game/ (libraryCurriculum.js =
 │           │                   letter and phrase paths; curriculum.js generated from the model's words, progress.js rules + storage,
-│           │                   quiz.js, useGameProgress.js, __tests__), vocabulary.js (/labels cache)
+│           │                   quiz.js, useGameProgress.js, __tests__), vocabulary.js (/labels cache); meeting/ (transcript committer,
+│           │                   sign planner + scheduler, speech sources, voice output, Meet / Zoom surfaces; page pages/meeting/)
 │           ├── components/     brand/ (Logo, AppLoader, Doodles), ui/ (Button, Card, StatusPill), AccessibilityModal,
-│           │                   SignReference (also `bare` player for quizzes), avatar/MudraAvatarViewer;
-│           │                   Navbar, Footer, IntroLoader, home/* are no longer used
+│           │                   SignReference (also `bare` player for quizzes), avatar/MudraAvatarViewer, communicate/, practice/
 │           ├── context/        AccessibilityContext.jsx (contrast, motion, text size, speech rate);
 │           │                   SessionContext.jsx (DEMO sign-in: role + name in localStorage)
 │           ├── avatar/         useAvatarRenderer.js + Animations/ (26 Alphabets, 13 Words, defaultPose);
@@ -256,6 +265,7 @@ build a sentence and speak it.
     ├── AUDIT_2026-10-13.md     audit: what is real, what was faked or overstated, evidence, fixes
     ├── SIGNLINE_EMERGENCY.md   Emergency Communication Assistant: behaviour, honesty rules, architecture, API, config, limits
     ├── SCALING_VOCABULARY.md   barriers between words, large-vocabulary benchmark, v9, how to reach 400-500 words
+    ├── MEETING_INTEGRATION.md  Meet / Zoom: extension, speech in and out, setup, tests, latency, limits, add-on registration
     ├── blueprints/             versioned development plans (README index; v1.0 = definition of MUDRA v1.0, milestones M0-M6)
     ├── MUDRA_MASTER_PLAN.md    original analysis, dataset research, dated progress log (very detailed)
     ├── architecture.md         short architecture table
@@ -425,8 +435,14 @@ available / Coming soon / Error), never colour alone.
 | `POST /recordings` | save one recorded sign | request `{label, signer, width, height, frames[] (1-1200, same frame format as /stream with t)}`; response `sample_id`, `label`, `label_readable`, `signer`, `duration_s`, `any_hand_rate`, `quality_flag` (`""`, `too_short`, `low_hand_detection`, `no_pose`), `label_count`, `custom_active`, `in_model`; 422 on invalid input |
 | `DELETE /recordings/{sample_id}` | delete one recording | `{deleted}`; 404 if unknown |
 | `WS /stream` | live recognition | Section 6.2 |
+| `POST /tts` | text -> speech, local Windows voice (System.Speech in one PowerShell process; 503 off Windows) | `audio/wav`, header `X-TTS-Ms`; request `{text (1-400), voice?, rate -10..10}` |
+| `GET /speech/status` | what meeting speech can do here | `tts {available, voices}`, `asr {available, model, error}`, `local_only` |
+| `WS /asr?room=R` | streaming speech recognition (sherpa-onnx) | binary 16 kHz 16-bit mono PCM chunks (<= 2 s), text `{"type":"stop"}`; events `ready`, `partial`, `final` (`segment`, `text`, `audio_s`), `stopped`, `error`; also sent to room R |
+| `WS /captions?room=R` | listen to a caption room | the same events (room: 16-64 url-safe characters) |
+| `GET /captions/active` | rooms with a live capture on this computer | `rooms[]`: `room`, `since`, `listeners` |
 
 CORS allows `localhost:3000/5173` and `127.0.0.1:3000/5173` plus `MUDRA_CORS_ORIGINS`; methods GET, POST, DELETE.
+The speech WebSockets check the Origin themselves (the same list plus `chrome-extension://` pages; no Origin = local tool).
 
 ### 6.2 WebSocket `/stream` protocol
 
@@ -465,7 +481,7 @@ Backend environment variables (`app/backend/mudra_api/settings.py`, `main.py`), 
 | Variable | Default | Meaning |
 |---|---|---|
 | `MUDRA_PORT` | 8000 | backend port (`python main.py`) |
-| `MUDRA_MODEL_DIR` | `app/backend/models/isl_mudra_combined_v8_desk_bilstm` | exported model directory |
+| `MUDRA_MODEL_DIR` | `app/backend/models/isl_mudra_combined_v15b_bilstm` | exported model directory |
 | `MUDRA_DEVICE` | `cpu` | `cpu` or `cuda` |
 | `MUDRA_UNCERTAIN_THRESHOLD` | from model card (0.65) | `/predict` threshold override |
 | `MUDRA_MIN_HAND_RATE` | 0.3 | `/predict`: below this share of frames with hands → `no_hands` |
@@ -834,13 +850,17 @@ Other measurements:
 | **phrases v1** | 2026-10-16 | `phrases_only.yaml` + seq_len 48, no background | 58.3% top-1 / 81.3% top-5 test videos |
 
 | **v9** | 2026-10-18 | `mudra_words_v9.yaml`: v8 recipe on `combined_words_v4_app` (+ 30 app takes of 6 words) | test streams 7 fps vs v8: -0.2 to +2.2 points on every source and framing; owner's takes 0-17% → 67-83% (6 clips); clip test 98.33% |
+| **v13b** | 2026-10-21 | `mudra_words_v13b.yaml`: init from v12c, `combined_words_v8_app_r6` (182 app takes / 30 signs, x6), lr 1e-4, 60 epochs (best 56) | owner's takes: test 30/30, val 27/30, 0 wrong (misses: the same FRIEND, PUNE, TODAY validation takes, near-zero confidence); other test 1,460 / 16 wrong; clip test 98.36%. With the taught-word bank: identical |
+| v13a | 2026-10-21 | same on x4 | owner's takes 57/60, other test 1,458 / 18 wrong (v13b better) |
+| **v12c** | 2026-10-21 | `mudra_words_v12c.yaml`: init from v11a, `combined_words_v7_app_r4` (103 app takes / 19 words, x4), lr 1e-4, best epoch 25 | owner's takes: test 19/19, val 16/19, 0 wrong (misses: one FRIEND and one PUNE validation take, TODAY at 0.68); other test 1,457 / 14 wrong; clip test 98.28%. With the taught-word bank: identical |
+| v12a / v12b | 2026-10-21 | same on x6, lr 1e-4 / 5e-5 | owner's takes 35/38 each, but other test 1,450 / 21 and 1,448 / 18 wrong (v12c better) |
 | **v11a** | 2026-10-20 | `mudra_words_v11a.yaml`: init from v10c, `combined_words_v6_app_r6` (93 app takes / 17 words, x6), lr 1e-4, best epoch 31 | owner's takes: test 16/17, val 14/17, 0 wrong; other test 1,459 / 13 wrong; clip test 98.35%. With the taught-word bank: identical (no override, no mix-up) |
 | v11b | 2026-10-20 | same with x4, lr 3e-4 | owner's takes 30/34, other test 1,456 / 15 wrong (v11a better) |
 | **v10c** | 2026-10-20 | `mudra_words_v10c.yaml`: init from v9, `combined_words_v5_app_r6` (47 app takes of 9 words, each training take x6), lr 1e-4, 60 epochs (best 34) | owner's held-out takes: test 8/9, val 6/9 (v9 5/9, 3/9); other test clips 1,456 right / 18 wrong (v9 1,461 / 14); clip test 98.27% |
 | v10 / v10b | 2026-10-19/20 | same, takes x10 lr 5e-4 / x4 lr 3e-4 | v10: owner's takes 15/16 but other test 1,427 / 39 wrong (rejected); v10b: 13/18, other 1,454 / 20 (v10c better) |
 | v9 cosine (push-apart) | – | `mudra_words_v9_cos.yaml`, CosFace head | worse than v9 on validation streams (e.g. desk 63.9% vs 66.7%); not deployed |
 
-v11a is deployed (2026-10-20); v10c and v9 are kept for rollback (`MUDRA_MODEL_DIR`). Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
+v15b is deployed (2026-10-23); v13b and older are kept for rollback (`MUDRA_MODEL_DIR`). Before: v13b deployed 2026-10-21 (evening). Before: v12c deployed 2026-10-21. Before: v11a deployed 2026-10-20. Before: v9 deployed 2026-10-18 with v8 for rollback. Earlier note: v8 was deployed with v6 kept beside it for rollback until v8 is confirmed live (`53558e1` removed older models; they remain in git history).
 
 ---
 
@@ -875,6 +895,10 @@ v11a is deployed (2026-10-20); v10c and v9 are kept for rollback (`MUDRA_MODEL_D
 
 ### Recommended next steps (2026-10-16, in order)
 
+0. **Meeting test** (2026-10-21, needs the owner, ~20 min, `docs/MEETING_INTEGRATION.md` "Setup"): load the extension,
+   click its button in a real Meet call with a second device (does tab capture start, is the meeting still audible,
+   do captions and signs follow the speaker), install VB-Cable and run Test route, then have the other person confirm
+   they hear the signed words; repeat on Zoom Web. Then decide on the Meet add-on / Zoom App registration.
 1. **Live webcam test** (needs the owner, ~15 min): sign ~20 known words plus a few letters and phrases on
    Communication, writing down what was signed, with `MUDRA_SESSION_DIR` set (signer consent); replay with
    `training/scripts/replay_session.py` to see whether frame rate, framing or the model fails (items 1, 1b, 12).
@@ -900,8 +924,9 @@ v11a is deployed (2026-10-20); v10c and v9 are kept for rollback (`MUDRA_MODEL_D
 Priority order. Each item says what is known and what to do next.
 
 0. **Launcher/runtime setup:** an old `.deps_ok` timestamp can survive after Python or npm packages have
-   been removed. `start_all.bat` now checks the actual backend imports and Electron toolchain and reinstalls
-   the CPU inference runtime when needed. Electron still uses the primary FastAPI API; the phone-webcam
+   been removed.    `start_all.bat` checks the actual backend imports (including multipart) and Electron toolchain and reinstalls
+   the CPU inference runtime when needed. Its default now starts the judges-ready backend + web frontend + stable-Worker tunnel,
+   waiting for a healthy v15b backend before Vite launches. Electron still uses the primary FastAPI API; the phone-webcam
    prototype's camera picker is available through the same browser camera selector when Camo is installed.
 
 1. **Live recognition fails on the developer's webcam** (critical). Stream log 2026-10-07: 11 signs,
@@ -928,8 +953,8 @@ Priority order. Each item says what is known and what to do next.
    fonts load from Google Fonts. Avatar fixed 2026-10-17 (owner's request): in development React mounts twice and a
    model loaded by the discarded mount became `ctx.avatar`, so animations moved an invisible copy and the visible
    avatar stayed in a T-pose; each load now checks its own `disposed` flag. The camera now frames the model from
-   its real size (head to below the hips plus signing space, re-fitted on resize); badge renamed "SignLine avatar". Unused old files: `HomePage.jsx`, `components/home/*`, `Navbar`, `Footer`, `IntroLoader`,
-   `public/assets/mudra-intro.mp4` (remove after the owner agrees). Only the screens were checked in screenshots;
+   its real size (head to below the hips plus signing space, re-fitted on resize); badge renamed "SignLine avatar". Unused old files (`HomePage.jsx`, `components/home/*`, `Navbar`, `Footer`, `IntroLoader`,
+   `public/assets/mudra-intro.mp4`) were removed on 2026-10-21 with the owner's approval. Only the screens were checked in screenshots;
    no screen-reader or full WCAG audit has been done.
 1g. **Judges Google OAuth is External / In production (2026-10-23).**
    The owner changed the audience in Google Cloud Console after an initial attempt was blocked for the active
@@ -998,9 +1023,16 @@ Development machine: Windows 11, Python 3.14 (venv at `app/backend/.venv`, share
 training), PyTorch 2.11 + CUDA 12.8, NVIDIA RTX 5060 Laptop GPU (sm_120), Node 20+, MediaPipe 1.0.1
 (Python Tasks API; there is no `mp.solutions`), `@mediapipe/tasks-vision` 1.0.1 in the browser.
 
-**Quick start (Windows):** run `start_all.bat` (creates the venv, installs `requirements.txt` and
-`npm install` only when needed, starts both servers). Then open http://localhost:3000 →
-Communicate → Start Camera.
+**Quick start (Windows):** run `start_all.bat` (same full web + tunnel launch as `start_judges.bat`; prepares
+the runtime and frontend dependencies when needed, waits for v15b backend health, starts the web frontend, and
+updates the stable Worker). Open the stable Worker URL printed by the tunnel script, or http://localhost:3000
+on the same PC → Communicate → Start Camera. Use `start_application.bat` for the Electron desktop app and root
+`start.bat` for backend-only tunnel mode.
+
+If the stable Worker returns Cloudflare **1016 / Origin DNS error**, its saved Quick Tunnel hostname has expired.
+Rerun `start_all.bat` to register a fresh one, and keep the launcher, backend and frontend windows open. If tunnel
+startup fails, the launcher pauses with the failure and recent cloudflared diagnostics; full logs are retained in
+the Windows `%TEMP%` folder.
 
 **Desktop shell:** `npm run electron:dev` in `app/frontend` opens the Vite frontend in Electron; the FastAPI
 backend must still be started separately. `npm run build:electron` makes a file-based frontend bundle for
@@ -1008,7 +1040,7 @@ local Electron review (`npx electron .`). Electron Builder targets and mobile/PW
 `docs/DESKTOP_AND_MOBILE.md`. Electron does not run on phones; mobile installs use the PWA or a future
 Capacitor wrapper. No installers are generated by these development commands.
 
-**Quick start (Windows):** run `start_application.bat` for Electron or `start_all.bat` for the browser. The
+**Quick start (Windows):** run `start_application.bat` for Electron or `start_all.bat` for the browser + judges tunnel. The
 launchers check Python runtime imports and frontend tool packages instead of trusting a timestamp marker
 alone. They install `requirements-runtime.txt` and CPU PyTorch for app use; the full `requirements.txt`
 remains for training and CUDA development. The runtime venv is separate from the training environment and
@@ -1060,6 +1092,8 @@ first-pass bonus, streak, badges, quiz answers are among the options, words with
 | `training/tests/test_phase2.py` | dataset, background samples, segment, close-up, desk and low-fps crops, models, old model cards, metrics and calibration, config merging, transfer init, an end-to-end training run, gap filling, per-recording test counts |
 | `app/backend/tests/test_library.py` | letter features ignore hand order and image scale, mirror, letter model forward pass, `/library`, `/reference/LETTER_A` + `/letters/predict`, `/phrases/predict` on a training clip, hand chirality flips with a mirror, letter hands in their own slots |
 | `app/backend/tests/emergency/` | SignLine Emergency: scenarios A-I, state machine, sequence editing, questions, location, gestures, access control, responder flow, analytics privacy, provider swap, real adapter (full list in `docs/SIGNLINE_EMERGENCY.md`) |
+| `app/backend/tests/test_speech.py` | meeting speech: speech gate (silence never decoded), caption rooms, origin and room checks, bad PCM chunks, status without a model, TTS WAV (Windows), real streaming ASR of a Windows-voice sentence (words before the sentence ends) |
+| `app/frontend/src/features/meeting/__tests__/meeting.test.js` | stable-word commit without duplicates, longest-sign planning and waiting, no invented signs, bounded ordered avatar queue, lag drop, Stop, TTS routing statuses and errors, echo guard, cable detection |
 | `app/backend/tests/test_api.py` | /health, /labels, /model, /predict on held-out clips, no-hands, invalid payloads, missing model 503, early-sign behaviour, /stream WebSocket vs the Python implementation, segmenter states, parked hands, live-session saving, recordings store + custom words, custom-word decision, /reference |
 
 `app/backend/tests/conftest.py` redirects the event log and the emergency database so tests never write to the real ones. Tests
@@ -1117,13 +1151,45 @@ that need the model or landmark data skip automatically when those files are mis
 
 ## 21. Change log (newest first)
 
+### 2026-10-23 · Make judges tunnel failures diagnosable (local)
+- The tunnel launcher now updates the Worker once per tunnel, reports the last health-check error, retains
+  cloudflared logs on failure, and keeps the command window open for diagnostics.
+- A stale Worker target produces Cloudflare 1016 because the temporary Quick Tunnel hostname no longer resolves;
+  restarting `start_all.bat` registers the newly created hostname. DNS for the stable `workers.dev` hostname
+  resolves normally.
+- Validation: PowerShell syntax parsing and `git diff --check` passed. The public Worker still returns 1016
+  until a launcher run successfully registers a fresh, live tunnel.
+
+### 2026-10-23 · Default launcher starts app and judges tunnel together (local)
+- `start_all.bat` and `start_judges.bat` now use the same judges-ready flow by default: start/reuse the v15b
+  backend, wait for `/health` to confirm that exact model is loaded, start Vite on strict port 3000, then start
+  the Quick Tunnel and update the stable Worker. This prevents the earlier frontend `/health` proxy-refused errors
+  during backend startup. The Electron launcher remains available separately; `start.bat` remains backend-only.
+- Startup now reports a clear error if port 8000 has an older model loaded or port 3000 is already occupied.
+- Validation: frontend tests/build and v15 API smoke checks passed during the integration; launcher batch behavior
+  was reviewed but not executed end-to-end because doing so opens long-lived services and updates the public Worker.
+
+### 2026-10-23 · Local integration of Addy/Mudra updates through `8f278c3` (not pushed)
+- Integrated the current upstream mobile Communication layout, v15b model and default settings, meeting speech
+  backend and extension, emergency gesture/media updates, tools, tests and training configs into this local
+  SignLine checkout while retaining local OAuth, Electron, camera and experimental static-pose work.
+- The integrated phone layout uses the upstream measured tall-camera/results order below 768 px; desktop
+  positions are unchanged. The v15b model loads on CPU with 339 recognized signs. No model retraining or fresh
+  accuracy evaluation was performed.
+- Added `python-multipart` to both backend dependency sets after a startup smoke test found the new emergency
+  form routes required it. The launcher now checks that module. Local API smoke returned HTTP 200 from
+  `/health`, `/models`, and `/speech/status`; ASR remains unavailable until its optional model download.
+- Fixed the Vite API-origin fallback for Node test imports. Frontend: 51 tests passed and production build
+  passed; backend changed-file syntax and v15b load checks passed. Full backend pytest was not run because
+  pytest/httpx test dependencies are absent from the runtime environment.
+
 ### 2026-10-23 · OAuth production and sign-in success checkpoint (not committed)
 - Deployed the existing Cloudflare Worker and verified its health response and OAuth-start redirect through
-  the stable URL. The Google request uses the registered Worker callback; no interactive OAuth callback or
-  app session was verified. Later, the owner changed Audience to **External / In production**. Saved the
+  the stable URL. The owner changed Audience to **External / In production**. Saved the
   owner-approved temporary home/privacy/terms URLs in Google Branding. Verification Center confirms data
   access verification is not required for the current non-sensitive scopes; branding is not currently shown.
-- Implemented popup sign-in and verified the frontend production build and Python syntax. The first live
+- Implemented popup sign-in; a live Google callback and SignLine session succeeded. The frontend production
+  build and Python syntax checks passed. The first live
   callbacks failed because the PC clock was about three hours behind public time servers; after the owner
   corrected it, a live sign-in and session succeeded. Backend ID-token verification now allows 60 seconds of
   clock skew. Stable Worker and current Quick Tunnel `/health` checks both return HTTP 200. The active Quick
@@ -1135,10 +1201,9 @@ that need the model or landmark data skip automatically when those files are mis
 - Moved the Camo/OpenCV prototype and its local media under `tools/phone-camera-prototype/`;
   removed its duplicate frontend from the consolidated layout. Its launcher now runs locally by
   default; the public tunnel is opt-in because it exposes live camera access.
-- Kept the deployed v11a recognizer as the default. The prototype static-pose models remain
-  experimental. No new model evaluation was run for this consolidation.
-
-Add one entry per push: date · commits · what changed · why · measured effect (split).
+- Kept the deployed v11a recognizer as the default at this consolidation checkpoint. The prototype static-pose
+  models remain experimental. Upstream subsequently advanced the default to v15b; no new model evaluation was
+  run as part of this workspace consolidation.
 
 ### 2026-10-20 · `c61dcd4` · experimental pose-model selection and camera controls
 - Added the experimental static-pose recognizer to `GET /models`; its label list now includes all trained
@@ -1149,7 +1214,220 @@ Add one entry per push: date · commits · what changed · why · measured effec
   could not collect because Windows blocked Torch's `c10.dll` (`WinError 4551`) and `tensorboard` is absent;
   full repository Ruff reports existing findings in other upstream files. The API suite did not complete in
   this local environment, so no API-level effect or accuracy change is claimed.
+### 2026-10-23 · Communication (Sign -> Voice) phone layout: tall camera, sign and meaning under it (pushed after `b4a982d`)
+- Owner (with a sketch): on phones the camera was a small wide box and the meaning was below the bottom nav. Fix
+  (CSS in `CommunicatePage.jsx`, below 768 px only): camera `clamp(260px, calc(100dvh - 23rem), 640px)` high (a tall
+  box on most phones); in the results card the detected sign comes first, then the meaning, then the recognized
+  words, then the Words / Spell / Phrase switch (now wrapped in `.communicate-mode-switch`), the model picker and
+  status, then the rest; smaller detected word and meaning text; room on the meaning box's right for the SOS button.
+- Measured (fake camera, emulated phones, after the start-camera scroll): camera 380x352 -> 380x471 at 412x839,
+  358x354 -> 358x476 at 390x844, 398x564 at 430x932, 328x272 at 360x640; the meaning box ends above the bottom nav at
+  all of them (a two-line sentence too). Element positions at 800 / 1024 / 1366 / 1920 px are identical to before.
+- On phones the Words / Spell / Phrase switch is now a short scroll below the camera in every mode.
+- Test-harness note: an off-screen Chrome draws no frames, so a smooth `scrollIntoView` stalls there; keep a
+  `Page.startScreencast` running when measuring scroll positions.
+- Tests: frontend 51 passed.
 
+### 2026-10-23 · v15b with MY, NAME, MY_NAME; tools/ in the repo; speech model download (pushed after `b5ee2e6`)
+- Owner recorded MY (10), NAME (10), MY_NAME (12) takes (now 214 takes / 33 signs). As custom (few-shot) words they
+  took short fragments in the live benchmark (0.8-1.9 s, 14-19 frames at 10-13 fps, similarity ~0.77; also once in
+  the owner's own session). Splits `combined_words_v9_app_r4/_r6`, configs `mudra_words_v15a/b.yaml` (from v13b).
+  `compare_word_models.py --models v13b v15a v15b --split combined_words_v9_app_r4 --bank`: owner's held-out takes
+  v13b+bank 63/66, v15a / v15b 62/66, all 0 wrong; other test 1,460 / 16 (v13b), 1,453 / 18 (v15a), 1,451 / 15 (v15b).
+  Live A/B at 12 fps (fake webcam): v13b 20/24, v15b 27/32 signs right, 0 wrong for both. v15b deployed (the three
+  words are model classes, no longer only custom words); v13b kept for rollback, v15a export deleted.
+- Today's live benchmark on the RTX varied from 45 to 68 ms per frame (yesterday 17-24 ms); recognition followed the
+  frame rate (8/8 at 21 fps, 4-5/8 at 11-14 fps). The owner's Chrome had still not been restarted since the GPU
+  setting (21 Oct 19:43).
+- `tools/` (new, see its README): `setup/download_asr_model.py` (run by `start_all.bat` when the model is missing),
+  `setup/chrome_gpu_high_performance.ps1` (with `-Undo`), `live_benchmark/` (fake webcam, live bench, score, GPU and
+  camera probes), `meeting_tests/` (speech WAVs, ASR comparison, meeting panel, VB-Cable route, extension tests with a
+  mock meeting). Ported from the scratchpad with repository-relative paths; outputs in `experiments/tools/`.
+  Checked from the repo: the extension test on the mock meeting and the live benchmark ran end to end.
+- `test_models.py`: the merged-mode test no longer assumes which words our model lacks (NAME is now ours).
+- Tests: backend 97 passed, frontend 51 passed, build OK.
+
+### 2026-10-22 · "Signs not recognised": cause is the frame rate, not the model (pushed after `b5ee2e6`)
+- The owner's session at 09:17: 146 / 61 ms per frame, 5.5-7 frames/s at the server, 1 of 10 signs recognised
+  (HELLO). Chrome had been running since 21 Oct 19:43, before the "High performance" GPU setting (applies only to a
+  newly started Chrome), so it still drew with the Intel UHD; the webcam delivered 5-15 fps (dim light).
+- Live benchmark at 12 fps (fake webcam, RTX): 5/8 held-out signs vs 8/8 at 25 fps. Stream test of v13b (test split,
+  correct %): the owner's recordings 73.3 / 80.0 / 86.7 at 8 / 12 / 25 fps, 0 wrong.
+- Tried: v14a (low-fps training 30% -> 60%, `mudra_words_v14a.yaml`): no better at any frame rate, other test 1,455 /
+  18 vs 1,460 / 16; not adopted, export deleted. The webcam (ACER HD) offers manual exposure, but Windows refuses it
+  from the browser ("setPhotoOptions failed"), so light is the only way to its 30 fps.
+- Changed: the client diagnostics now include the browser GPU (`gpu`, `integrated_gpu` in `client_diag`), so the next
+  session shows whether Chrome uses the RTX.
+
+### 2026-10-21 · Live tracking: 2.5x faster on the owner's laptop, no duplicate frames, no start-up freeze (pushed after `110ea77`)
+- Owner: improve fps, body / hand / finger tracking, lag and recognition. Evidence first: the owner's sessions logged
+  62-133 ms per frame (GPU delegate) and 6-7 frames/s reaching the server, with weak guesses (8-14 frames per sign).
+- Benchmark built (scratchpad `bench_cam.mjs` + `make_fake_cam.py`): a normal Chrome window on this laptop, the real
+  Communicate page and server, a fake webcam of 8 held-out INCLUDE test signs (ACTOR ... BAD, 34 s, 25 fps).
+- Found: (1) Chrome drew with the Intel UHD on-chip GPU, not the RTX 5060 (a page cannot choose: powerPreference
+  and WebGPU high-performance still returned Intel); (2) the rAF loop processed the same camera frame 2-3 times (49
+  "frames"/s sent from a 25 fps camera); (3) the first frame after Start took 3-5 s (GPU program compile); the owner's
+  logs show the same 4.2 s freeze; (4) the delegate probe swapped models in the middle of the first sign; (5) the 3D
+  avatar redrew 60 times a second while idle.
+- Fixed (`handTracker.js`): requestVideoFrameCallback loop, one inference per new camera frame; warm-up on a blank
+  image at load + `handTracker.preload()` on Communicate and Teach a sign; the delegate probe swaps only on a frame
+  without hands and remembers its decision 30 days (blank-frame timing was tried and rejected: it picked the CPU,
+  which is slower with hands in view); pose on every frame when hands + pose take < 22 ms (back to every other frame
+  above 30 ms); `describeGpu` / `browserGpu` + a Communicate hint for slow tracking on on-chip graphics; dev-only
+  `window.__mudraTracker`. `useAvatarRenderer.js`: no redraw while idle (resize / framing / model load ask for one).
+- Windows setting changed with the owner's approval: Chrome uses the "High performance" GPU
+  (`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`, chrome.exe = `GpuPreference=2;`); undo in Windows Settings >
+  System > Display > Graphics. Applies after Chrome restarts.
+- Measured (same fake webcam): before 46 ms / 22 fps (Intel GPU), 56 ms / 18 fps (CPU), 8/8 signs; after, on the
+  RTX: 20-24 ms per frame (hands 10 ms, pose 8 ms), the server receives the camera's full 25 fps (no duplicates), 8/8
+  right and 0 wrong in each of 5 runs, word in the page within -0.8 to +0.3 s of the clip's end (the end of a sign is
+  found when the hands go still, often before the clip ends). A bug the benchmark caught before release: pose "every
+  frame" ran only once (`n % 1 === 1` is never true), 0/8; fixed.
+- Not changed: the model, the segmenter settings, MediaPipe confidence thresholds. Tests: frontend 51 (1 new).
+
+### 2026-10-21 · v13b: YES, NO and 8 recorded phrases; tidy-up (pushed after `110ea77`)
+- Owner recorded 11 more signs (79 takes): YES, NO, WHAT_HAPPENED, SLEEP_WELL, I_AM_NOT_DEAF, I_BATHROOM_GO,
+  WOULD_YOU_LIKE_COFFEE, FOOD_TASTE_GOOD, MY_BAG_COLOR_BLUE, MY_MOTHER_COOKS_FOOD, and more BAG (now 182 takes /
+  30 signs). Splits `combined_words_v8_app_r4` / `_r6`, configs `mudra_words_v13a/b.yaml` (from v12c, lr 1e-4).
+  `compare_word_models.py --models v12c v13a v13b --split combined_words_v8_app_r4 --bank`: owner's held-out takes
+  v12c 35/60, v13a and v13b 57/60, all 0 wrong; other test 1,457 / 14 (v12c), 1,458 / 18 (v13a, x4),
+  **1,460 / 16 (v13b, x6)**. v13b deployed; v13a export deleted. All new signs also get avatar clips from the
+  owner's takes (YES and NO are now signed, not spelled). Remaining misses: the same FRIEND, PUNE, TODAY takes.
+- Tidy-up (owner: organise the files, remove junk without changing how it works): removed the old landing page that
+  no route used (`pages/HomePage.jsx`, `components/home/*` (8), `Navbar`, `Footer`, `IntroLoader`, the 2.8 MB
+  `public/assets/mudra-intro.mp4`; checked by an import graph from `main.jsx`); old word models v6-v11a kept at the
+  owner's choice. `tests/test_api.py` now tests the deployed model (`Settings().model_dir`, sign count from its model
+  card) instead of v8; script defaults that pointed at v9 / v11a use v13b. README: new "Project structure" section,
+  stale status lines (hand-made animations, untrained words) corrected. No Python module was unused (checked).
+- Tests: backend 97 passed, frontend 50 passed, build OK.
+
+### 2026-10-21 · Meetings: Google Meet / Zoom extension, local speech in and out (pushed after `110ea77`)
+- Owner's spec: two-way MUDRA inside real meetings. Audit: none of the reported LiveVoicePanel, voiceOutService,
+  sentencePlanner, `/api/tts`, Meeting Mode or extension existed in this checkout; speech was browser-only
+  (`speechSynthesis`, Web Speech on the microphone).
+- Built (`docs/MEETING_INTEGRATION.md`): `mudra_api/speech.py` + `speech_api.py` (`/tts` Windows voices, `/asr` sherpa-onnx
+  streaming ASR with caption rooms, `/captions`, `/captions/active`, `/speech/status`); `app/meeting-extension` (MV3:
+  tabCapture + offscreen capture that keeps the meeting audible, Shadow-DOM overlay, panel frame, options);
+  `/meet-panel` (no app shell) with incoming captions + avatar and outgoing signs -> voice -> setSinkId (VB-Cable),
+  Test route that listens on CABLE Output; `features/meeting/*`; `useAvatarRenderer` append mode (ordered phrase
+  queue with first-frame markers, `cancelPhrase`, `clearQueue`, no rest pose between signs in live mode); Meet add-on
+  and Zoom App surfaces (`clientSurfaces.js`, SDKs from the vendors' CDNs, unregistered).
+- Installed with the owner's approval: `sherpa-onnx==1.13.8` (requirements.txt) and the 20M English streaming model
+  (int8 files only, `app/backend/var/asr_models`, git-ignored). Greedy decoding lost whole phrases with this model;
+  modified beam search (4 paths) fixed it at the same speed.
+- Measured: ASR 0.34 s per 6.6 s of audio; word start -> first partial 450-810 ms, committed 1.04-1.55 s, first avatar
+  frame 1.43-1.94 s (4.5-5.6 s behind earlier phrases; dropped beyond 6 s); TTS 0.75-0.94 s per new phrase. Signing is
+  slower than speech (recorded signs 1.0-2.7 s each), so continuous speech is captioned fully but only partly signed.
+- Found and fixed while testing the extension: without host permissions the toolbar click could not see that the tab
+  is a meeting; the service worker's session now survives the worker being stopped (storage.session).
+- Real tab capture verified on the mock meeting: shortcut Alt+Shift+M (new, `_execute_action`) pressed with real
+  Windows keystrokes in a normal Chrome window -> capture, captions and signs from the tab's audio, page still playing.
+  (Forcing capture with `--allowlisted-extension-id` does not work: Chrome refuses the stream.)
+- Then (owner: "complete this first"): VB-Cable 4.5 installed with the owner's approval (signed installer, UAC);
+  Test route verified; signed words spoken into CABLE Input came back from CABLE Output as "hallo how are you",
+  "i need water". Fixes found on the way: Chrome names the cable "CABLE In 16ch" / "CABLE Input" (detection), the
+  Communicate page's single-sign expansions (WATER -> "I need water.") repeated words in meetings (`meetingSentence`).
+- Speech model: the 2023-06-26 zipformer (310 MB download, 68 MB kept; owner approved) replaced the 20M one, with a
+  **speech gate** (only audio around speech is decoded: the bigger model invented "and" on silence) and loading at
+  server start. On 10 synthetic recordings: 15.1% word errors vs 22.9% (20M with the gate). Split words are joined
+  back for signs ("to morrow" -> TOMORROW).
+- Not tested: a real Meet / Zoom call, a second participant, the add-on and the Zoom App.
+- Tests: backend 97 passed (7 new in `test_speech.py`), frontend 50 passed (14 new in `meeting.test.js`), build OK.
+
+### 2026-10-21 · v12c deployed: I_AM_FINE and I_LOVE_YOU from the owner's recordings · `110ea77`
+- Owner recorded 2 more signs (I_AM_FINE, I_LOVE_YOU; now 103 takes / 19 words). v11a missed all 4 of their
+  held-out takes (LOOSE, TOOL, SPRING, all below the threshold), so the words were not live.
+- Splits `combined_words_v7_app_r6` / `_r4` (`build_app_split.py --base combined_words_v3`, same test takes);
+  configs `mudra_words_v12a/b/c.yaml` (init from v11a). `compare_word_models.py --models v11a v12a v12b v12c
+  --split combined_words_v7_app_r6 --bank`: owner's held-out takes v11a 30/38, v12a/b/c 35/38, all 0 wrong; other
+  test 1,459 / 13 (v11a), 1,450 / 21 (v12a, x6), 1,448 / 18 (v12b, lr 5e-5), **1,457 / 14 (v12c, x4)**. v12c
+  deployed (`settings.py`); v12a/b exports deleted. Remaining misses as before: one FRIEND and one PUNE validation
+  take (near-zero confidence, likely the recording, e.g. PUNE's 12-14 fps take) and TODAY (0.68, just below 0.7).
+- Backend tests: 90 passed.
+
+Add one entry per push: date · commits · what changed · why · measured effect (split).
+
+### 2026-10-21 · Avatar: no more hand-made words, the owner's recordings as signs, full return to rest · `110ea77`
+- Owner's screenshots (NO): the hand-made NO swung an arm out sideways and turned the hands backwards (joint
+  angles written for another skeleton orientation), and the avatar then stayed in that pose ("hanging"): the
+  end-of-sequence neutral step (`setDefaultPose`) sets only 4 joint angles, leaving every other bone bent.
+- Fixes: every sequence (and Rest / replay) ends with a smooth return of ALL skeleton bones to the neutral pose
+  (`ctx.allBones`, `blend-rest`); all hand-made words are off (NO, YES, GOODBYE, BYE, HELP added to
+  `HANDMADE_OFF`): words without a recording are spelled with the letter-photo shapes and the viewer says so,
+  inviting a recording. `ReferenceClips.add_app_recordings`: the owner's Teach-a-sign takes are avatar examples
+  for words without a training video (best take per word, refreshed after each new recording): FOOD, FROM, HELP,
+  HOW_MUCH, ME, NEED, PUNE, THIS, WATER, WHAT_TIME. Checked: "help no" plays HELP (own recording), N, O, then
+  glides to rest and stays there. Tests: `tests/test_references_app.py` (2); backend 90, frontend 36.
+
+### 2026-10-21 · Avatar anatomy and animation audit: letter placement, jitter, queue · `110ea77`
+- Letter A cause (measured on Y Bot): the solver reached every wrist target exactly; the targets were wrong.
+  `letterClip()` scaled the photo by the palm length (wrist -> middle knuckle), which a palm tilted towards the
+  camera foreshortens (A photo: finger chain 3.02x the palm vs 1.84x anatomically), so hand-to-hand distances
+  were ~1.6x too large: A's wrists at +-0.77 shoulder widths, thumbs 2.56 hand sizes apart (photo 0.85 on the
+  true scale 0.30), elbows flared to -1.06. Fix: scale = 25th percentile over 10 hand segments (palm, width,
+  finger segments); two-handed letters whose hands touch in the photo (< 1 hand size) move the wrists until the
+  same landmark pair touches on the avatar (3 iterations, skeleton pose saved / restored); elbows wider than
+  0.3 upper-arm lengths outside the shoulder cost more. After: A wrists +-0.38, contact photo 0.30 = avatar
+  0.30 (B 0.17/0.17, D 0.20/0.20, G 0.13/0.13, K, P, T equal), right elbow -0.58..-0.70; letter agreement
+  hand 1.8 -> 1.4 deg, palm 3.2 -> 3.0.
+- Letters have no body reference (alphabet photos are hand crops): the chest zone is still a default; J / Z
+  motion is not represented. Recording A-Z on Teach a sign would give real body placement and motion.
+- Jitter cause: not single-frame landmark spikes (a 3-frame median changed nothing; kept, harmless) but solver
+  discontinuities: the elbow plane of a nearly straight / fully folded arm turned 113 deg in one frame (YOU #17)
+  and twists wrapped at +-180 deg; plus finger flicker from hidden fingers. Fixes: elbow plane blended with the
+  last one by how well it is defined (|bend| 0.1..0.5); bounded angle unwrap (<= 30 deg past +-180, an unbounded
+  unwrap raised palm error 1.8 -> 6.6 deg and was rejected); per-bone rate limit (arms 900, fingers 700 deg/s).
+  8 words: largest one-frame bone change 174 -> 72 deg, finger steps > 720 deg/s 1.3% -> 0%, word agreement palm
+  1.8 -> 2.5 deg, fingers 8.6 -> 9.5 deg. Transitions between signs and back to rest now glide 160-620 ms by
+  angle (were 280 ms / ~5 frames for up to 122 deg); no duplicate neutral step after a recorded sign.
+- Queue: a new text no longer cuts the sign that is playing (it finishes, then the new sequence replaces the
+  rest; checked in the browser). Fallbacks are visible: the viewer says which letters / words used the
+  approximate hand-made animations, or that letter data is missing on this server (`onSequenceInfo`).
+- New dev-only page `/dev/avatar-qa` (`pages/dev/AvatarQAPage.jsx`): letters and recorded words, play / pause /
+  scrub, front / three-quarter / side views, skeleton overlay, wrist target markers, fallback report, fps,
+  slowest frame and fastest bone turn, snapshot. Frontend tests 30 -> 36. Visual check: A, B, D, K, P in front of
+  the chest with the hands meeting. ISL correctness still needs a Deaf / qualified ISL signer.
+
+### 2026-10-21 · Emergency: gesture reports to the responder desk, encrypted videos, retention · `110ea77`
+- Gesture report linked into the normal flow: `POST /gestures/{id}/request-assistance` (session -> gesture ->
+  location -> review -> confirm, READY_TO_SHARE); the session page shares it and shows Delivered (receipt) /
+  Acknowledged / Resolved / Delivery failed + retry. Video only with sharing consent, as the incident's own
+  encrypted copy; responders view it (`/responder/incidents/{id}/video`, audited). Migration `0003`.
+- Videos encrypted at rest (AES-256-GCM, `cryptography==50.0.2` added with the owner's OK; key in
+  `SIGNLINE_EM_MEDIA_KEY` or `var/emergency_media.key`). Retention job at start-up and every 24 h: old ended
+  sessions + incident videos, gesture videos after 365 days, orphan files. Fixed: deleting an ended session with an
+  incident failed (ORM nulled `session_id`); the relationship now cascades.
+- Tests: emergency 45 -> 54. Browser run (fake camera): record, save, prepare with video, share -> Delivered;
+  responder: open, Show video, Acknowledge.
+
+### 2026-10-21 · Emergency: gesture videos, emergency numbers, dial and share screen · `110ea77`
+- Owner's spec (2-hour core agreed): Add gesture wizard with camera recording (`recorder.js`, `GestureRecorder`,
+  `GestureWizard`); clickable gestures with a detail page (video, edit, retake, delete, test); Request emergency
+  assistance -> review (service + number, optional location, message with provenance, video) -> Call (confirm,
+  then `tel:` dialer; user presses call) and Share (share sheet; video only with consent and file support; never
+  claims delivery). Backend: migration `0002` (gesture video fields, recording consent, emergency contact),
+  `services/media_store.py` (consent-only, random keys, WebM/MP4 by content, <= 25 MB / 30 s, owner-only,
+  deleted with the gesture), `config/emergency_contacts.json` (13 India numbers, all unverified, default 112),
+  `services/gesture_report.py`, endpoints `/gestures/{id}/video`, `/gestures/{id}/report`, `/contacts`.
+- Privacy exception approved by the owner and written into AGENTS.md: gesture demonstration videos are stored
+  (consent, device-only, never committed / logged / used for training).
+- Tests: emergency 29 -> 45 (backend 79 total), frontend 21 -> 30. Fake-camera browser run: record 3.6 s, save,
+  open, review, `tel:112`. Deferred: number verification, state lists, linking to the session / responder flow
+  (delivered / acknowledged), video retention job and encryption, responder video access.
+
+### 2026-10-20 · Communication (Sign -> Voice) mobile layout · `80ffde2`
+- Owner: on phones the camera filled the screen and the detected sign was 2-3 scrolls below it. Causes: a phone rule
+  `height: clamp(480px, 72dvh, 680px)` on the camera, and the stacked columns putting the manual-word chips and the
+  word list between the camera and the results. Fix (CSS in `CommunicatePage.jsx`, all below 1024 px, desktop
+  untouched): results card right after the camera, chips and word list after it; camera `clamp(220px, 42dvh,
+  380px)` on phones (short / landscape screens: `100dvh - 9rem`); model picker at the end of the card on phones;
+  camera buttons on one row from 360 px, tips above them, "Added" cue below the status pills; camera scrolls into
+  view when it starts; 10rem bottom room for the nav + SOS. SOS: 48 px and 8 px from the edge below 640 px.
+- Measured (fake camera, emulated phones): camera top -> Meaning 1,311 -> 659 px at 360x640, 1,394 -> 729 at 390x844,
+  1,445 -> 735 at 412x915 (camera, detected sign, recognized and meaning on one screen there); no horizontal scroll,
+  no overlapping or clipped camera controls at 320-844 px. Desktop 1024 / 1366 / 1920 screenshots: identical except
+  the animated pulse icons (<= 0.02% of pixels).
+- The owner's screenshots came from the teammate's tunnel build (extra panels); this fixes our page.
 ### 2026-10-20 · v11a deployed: 17 recorded words, no mix-ups
 - Owner recorded 8 more words (FOOD, HELP, HOW_MUCH, ME, NEED, THIS, WATER, WHAT_TIME; 93 takes / 17 words).
   v11a (from v10c, takes x6, lr 1e-4) vs v10c on `combined_words_v6_app_r4` val/test: owner's takes 30/34 vs 14/34,

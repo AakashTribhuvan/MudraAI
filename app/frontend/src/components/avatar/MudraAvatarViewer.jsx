@@ -15,6 +15,7 @@ export default function MudraAvatarViewer({
   const [speed, setSpeed] = useState(1.2)
   const [retryKey, setRetryKey] = useState(0)
   const [warning, setWarning] = useState(null)
+  const [seqInfo, setSeqInfo] = useState(null) // which signs used hand-made fallbacks (shown, never silent)
   const { avatar, avatars, choose } = useAvatarChoice()
   useEffect(() => { setWarning(null); setIsModelLoading(true); setLoadError(null) }, [avatar.id])
 
@@ -23,6 +24,7 @@ export default function MudraAvatarViewer({
     modelPath: avatar.url,
     modelType: avatar.type,
     onWarning: setWarning,
+    onSequenceInfo: setSeqInfo,
     animationSpeed: speed,
     pauseDuration: 300,
     onTextUpdate: (char) => {
@@ -131,6 +133,16 @@ export default function MudraAvatarViewer({
             <div className="text-[11px] text-mudra-indigo-500 font-mono mt-0.5">
               Mixamo Rig Skeleton
             </div>
+          </div>
+        )}
+
+        {!warning && !loadError && !isModelLoading && seqInfo && (seqInfo.fallbackLetters.length > 0 || seqInfo.fallbackWords.length > 0 || seqInfo.spelledWords?.length > 0) && (
+          <div role="status" className="absolute bottom-2 left-2 right-2 z-10 rounded-xl border border-amber-300 bg-amber-50/95 px-3 py-2 text-[11px] font-semibold text-amber-900">
+            {seqInfo.letterDataMissing
+              ? 'Letter shapes are not available on this server, so letters use approximate hand-made animations.'
+              : seqInfo.fallbackLetters.length || seqInfo.fallbackWords.length
+                ? `Approximate hand-made animation for: ${[...seqInfo.fallbackWords, ...seqInfo.fallbackLetters.map((l) => `letter ${l}`)].join(', ')}.`
+                : `Spelled letter by letter (no recorded sign yet): ${seqInfo.spelledWords.join(', ')}. Record it on Teach a sign and the avatar will sign it.`}
           </div>
         )}
 

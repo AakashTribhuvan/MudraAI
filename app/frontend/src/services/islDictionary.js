@@ -562,6 +562,13 @@ const CANONICAL_SEQUENCE_DICTIONARY = {
  * @param {'en'|'hi'|'mr'} lang - Target output language
  * @returns {string}
  */
+/** The curated sentence for exactly this sequence of two or more signs (e.g. HELLO,WATER), or null. */
+export function canonicalSentence(tokens, lang = 'en') {
+  if (!tokens || tokens.length < 2) return null
+  const matched = CANONICAL_SEQUENCE_DICTIONARY[tokens.map((t) => t.toUpperCase().trim()).join(',')]
+  return matched ? matched[lang] || matched.en : null
+}
+
 export function buildMultilingualSentence(tokens, lang = 'en') {
   if (!tokens || tokens.length === 0) return ''
 

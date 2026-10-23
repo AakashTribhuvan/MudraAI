@@ -151,10 +151,13 @@ export function ResponderIncidentPage() {
   const [note, setNote] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [videoUrl, setVideoUrl] = useState(null)
 
   useEffect(() => {
     if (auth) emergencyApi.incident(incidentId).then(setInc).catch((e) => setError(onAuthError(e)))
   }, [incidentId, auth?.token]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl) }, [videoUrl])
+  const showVideo = () => emergencyApi.incidentVideo(incidentId).then((b) => setVideoUrl(URL.createObjectURL(b))).catch((e) => setError(onAuthError(e)))
   if (!auth) return <Navigate to="/responder/login" replace />
 
   const run = async (fn) => {
@@ -218,6 +221,20 @@ export function ResponderIncidentPage() {
               </Section>
             </div>
             <aside className="space-y-4">
+              {inc.emergency_message && (
+                <Section title="Gesture report">
+                  <pre className="whitespace-pre-wrap font-sans text-sm">{inc.emergency_message}</pre>
+                  {inc.emergency_contact && <p className="mt-2 text-xs text-sl-ink-600">Number the user chose to call: {inc.emergency_contact.number} {inc.emergency_contact.service}</p>}
+                </Section>
+              )}
+              {inc.video && (
+                <Section title="Gesture video (shared with consent)">
+                  {videoUrl
+                    ? <video src={videoUrl} controls playsInline className="aspect-[4/3] w-full rounded-sl border-2 border-sl-ink bg-black object-contain" aria-label="Gesture video shared by the user" />
+                    : <Button size="sm" variant="outline" onClick={showVideo}>Show video ({inc.video.duration_seconds} s)</Button>}
+                  <p className="mt-1 text-xs text-sl-ink-600">Shared {inc.video.sharing_consent_at ? new Date(inc.video.sharing_consent_at).toLocaleString() : ''}. Viewing is recorded in the audit log. Do not copy it elsewhere.</p>
+                </Section>
+              )}
               <Section title="Location">
                 {inc.location ? (
                   <p className="text-sm">

@@ -33,6 +33,7 @@ from mudra_api.recordings import RecordingStore, frames_to_sequence, parse_frame
 from mudra_api.references import ReferenceClips
 from mudra_api.schemas import LetterRequest, PredictRequest, PredictResponse
 from mudra_api.settings import Settings
+from mudra_api.speech_api import speech_router
 from mudra_api.static_pose import StaticPoseModel, StaticPoseStreamingRecognizer
 from signline_emergency.api import emergency_router
 
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Content-Type", "Authorization", "X-Device-Key", "X-Session-Token"],
+        expose_headers=["X-TTS-Ms"],
     )
 
     recognizer: SignRecognizer | None = None
@@ -70,6 +72,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         load_error = f"Model files not found in {settings.model_dir}: {exc.filename}"
         log.warning(load_error)
     references = ReferenceClips(settings.reference_split, world_dir=settings.reference_world_dir)
+    app_manifest = settings.recordings_dir / "metadata" / "manifest_app.csv"
+    references.add_app_recordings(app_manifest)  # the owner's own takes sign the words without a training video
     # Selectable word models (GET /models; the stream start message picks one with "model").
     # "sequence" (the deployed word model) is the default; experimental models are opt-in.
     intro_static: StaticPoseModel | None = None
@@ -230,7 +234,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     session_dir = settings.session_dir
     # Browser diagnostics written to the events log (numbers and the camera's name; never landmarks)
-    DIAG_KEYS = ("camera_fps", "tracking_fps", "inference_ms", "delegate", "camera", "width", "height")
+    DIAG_KEYS = ("camera_fps", "tracking_fps", "inference_ms", "delegate", "gpu", "integrated_gpu", "camera", "width", "height")
     DIAG_LOG_EVERY_S = 60.0
     max_session_frames = 30 * 60 * 20  # 20 minutes at 30 fps
 
@@ -347,6 +351,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             frames = [parse_frame(f) for f in req.frames]
             saved = store.add(req.label, req.signer, frames, req.width, req.height)
+            references.add_app_recordings(app_manifest)
         except (KeyError, TypeError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=f"Invalid recording: {exc}") from exc
         saved["label_readable"] = readable(saved["label"])
@@ -389,4 +394,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(google_auth_router)
     app.include_router(emergency_router())  # SignLine Emergency (self-contained, /api/v1/emergency)
+    app.include_router(speech_router(settings, warm_up=True))  # meeting speech: /tts, /asr, /captions (local only)
     return app

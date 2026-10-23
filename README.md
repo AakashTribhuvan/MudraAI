@@ -13,22 +13,23 @@ Only body and hand landmark coordinates leave the browser, never camera images.
 **Taking over the project (people or AI models): read [`HANDOVER.md`](HANDOVER.md) first.** It is
 updated at every push and documents the architecture, interfaces, data, models and open problems.
 
-## Status (18 Oct 2026)
+## Status (23 Oct 2026)
 
 | Area | State |
 |---|---|
-| Web app (Home, Communication, Learning, Game Mode, Progress, Teach a sign, Settings; Admin pages) | Working; avatar demonstrates 26 letters and 13 words; installable on phones (web app manifest) |
-| Recognition model | `isl_mudra_combined_v11a_bilstm`: 324 words + "no sign" (v9 + the app's 93 recorded takes of 17 words); v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
-| Recognition modes | SignLine words (v11a, default); Merged: v11a + 8 words from the teammate's models, each word from the most accurate model that knows it; Auto: Merged words and A-Z fingerspelling from one camera stream (`docs/TEAMMATE_MODELS.md`) |
-| Avatar signs real words | Typed or spoken words that SignLine recognises are performed from real recorded signs (landmarks of the training videos turned into arm, hand and finger rotations; an approximation). Other words are fingerspelled with the alphabet photos' hand shapes (arms placed in front of the chest); NAMASTE is built from landmarks and GOODBYE, YES, NO, HELP keep hand-made animations |
+| Web app (Home, Communication, Learning, Game Mode, Progress, Teach a sign, Settings; Admin pages) | Working; the avatar signs the recorded vocabulary and fingerspells other words; installable on phones (web app manifest) |
+| Recognition model | `isl_mudra_combined_v15b_bilstm`: 339 signs + "no sign" (v9 + the app's 214 recorded takes of 33 signs, incl. YES, NO, MY, NAME and 9 phrases; your held-out takes 62/66, 0 mix-ups); v8's recipe (hands resting in view, low camera frame rates) plus the app's recorded takes; not worse than v8 on any test stream (the numbers below are for an earlier model, v6; v8 and v9 are in HANDOVER Section 14) |
+| Recognition modes | SignLine words (v15b, default); Merged: v15b + 8 words from the teammate's models, each word from the most accurate model that knows it; Auto: Merged words and A-Z fingerspelling from one camera stream (`docs/TEAMMATE_MODELS.md`) |
+| Avatar signs real words | Typed or spoken words that SignLine recognises are performed from real recorded signs (landmarks of the training videos turned into arm, hand and finger rotations; an approximation). The owner's own *Teach a sign* takes are used for words without a training video. Other words are fingerspelled with the alphabet photos' hand shapes (arms placed in front of the chest) and the viewer says so; NAMASTE is built from landmarks. The old hand-made word animations are switched off (they did not show the signs) |
 | Avatar choice | Drop a rigged Mixamo `.fbx` or `.glb` into `app/frontend/src/assets/avatars/` and pick it in the dropdown on the 3D avatar; the signs are retargeted from the default Y Bot |
-| Model choice (from a teammate's branch) | Communication lets you pick the word model; each shows its measured accuracy. The default is v11a. A teammate's static-pose model is an opt-in experiment: on our test clips it got 0 of 22 shared-word signs right (v9: 22 of 22) |
+| Model choice (from a teammate's branch) | Communication lets you pick the word model; each shows its measured accuracy. The default is v15b. A teammate's static-pose model is an opt-in experiment: on our test clips it got 0 of 22 shared-word signs right (v9: 22 of 22) |
 | Barriers between words | Taught words get their own boundary so look-alike words are not mixed up; *Teach a sign* warns about inconsistent takes and look-alike words. Measured with 150 taught words: mix-ups 7.0% → 5.0%. See [`docs/SCALING_VOCABULARY.md`](docs/SCALING_VOCABULARY.md) |
 | Live recognition (Communication) | *Words*: sign start/end detection, automatic word adding, spoken sentence, "How to sign it" examples; *Spell* and *Phrase* modes (below) |
 | New words from the Teach a sign page | Work immediately (few-shot), stored for retraining |
 | Data pipeline | MediaPipe landmarks, leakage-safe splits, label audit |
 | Fingerspelling letters A-Z and 99 phrases | New (from the team's alphabet photos and sentence videos): letters 70.9% / phrases 58.3% first guess on held-out data (phrases are always chosen by the user from the top guesses); in Learning, Game Mode and Communication (*Spell* / *Phrase*). Not yet measured on a live webcam. See [`docs/SIGN_LIBRARY.md`](docs/SIGN_LIBRARY.md) |
 | Emergency help (SOS circle, bottom-right) | Prototype in demo mode: explain an emergency with buttons, signs or a personal gesture, check and correct what SignLine understood, confirm, share with an in-app demo responder desk. Contacts no one; signs are simulated because the model does not know most emergency signs. In a real emergency in India, call 112. See [`docs/SIGNLINE_EMERGENCY.md`](docs/SIGNLINE_EMERGENCY.md) |
+| Google Meet / Zoom (new, prototype) | Chrome extension `app/meeting-extension` puts the MUDRA panel in the meeting: what others say is recognised on this computer and signed by the avatar while they speak, with a live caption; your signs are spoken in a local voice into a virtual cable used as the meeting microphone. Tested on a mock meeting page and with recorded speech, not yet in a real call (`docs/MEETING_INTEGRATION.md`) |
 | Known gap | Live use on a laptop webcam is not yet reliable: the browser tracks at ~6 fps on some machines and the model has seen few signers (66.7% on unseen recording sessions) |
 | Honest reading of the numbers | Test clips come from the same signers and sessions as training clips, so the 97-99% figures below are "new takes by known signers". Accuracy for new people has not been measured. See the audit: [`docs/AUDIT_2026-10-13.md`](docs/AUDIT_2026-10-13.md) |
 
@@ -109,7 +110,7 @@ users: at 0.9, 39.3% correct / 5.3% wrong; at 0.95, 30.1% / 2.3%.
 - No dataset has signer IDs; the session hold-out above is the closest measured proxy for new
   people. Recordings made in the app carry the signer's name, so they can provide the real test.
 - The idle movements in the benchmark are synthetic.
-- The app's own words NAMASTE, WATER, HELP, YES, NO, GOODBYE, HOME and PERSON have no training data yet.
+- NAMASTE, GOODBYE, HOME and PERSON have no training data yet (WATER, HELP, YES and NO were recorded on *Teach a sign*).
 
 ## How it works
 
@@ -133,22 +134,24 @@ UI: Signing... / "Looks like X" <---- (3-cut smoothing, threshold,           upp
 
 ## Quick start (Windows)
 
-1. For the desktop app, double-click `start_application.bat`. To use the web app in a browser, run `start_all.bat`. For judge access, run `start_judges.bat`; it starts the backend and public frontend, then updates the stable Cloudflare Worker to proxy the current temporary tunnel. To start only the backend and expose its API through a temporary tunnel, run `start.bat`.
-2. Open http://localhost:3000, choose the demo user, then **Communication -> Start Camera Stream**.
-3. *Words*: sign one word from start to finish, then lower your hands. The word is added when the sign ends.
+1. For the normal web app and judge access together, double-click `start_all.bat` (or its alias, `start_judges.bat`). It prepares dependencies, waits for the backend and v15b model to be healthy, then starts the frontend and updates the stable Cloudflare Worker to the current tunnel. Keep the launcher and service windows open. For the desktop app, use `start_application.bat`; to expose only the backend API, use `start.bat`.
+2. Open the stable Worker URL printed by the launcher (or http://localhost:3000 on this PC), choose the demo user, then **Communication -> Start Camera Stream**.
+3. If the Worker shows Cloudflare **1016 / Origin DNS error**, its stored temporary tunnel has expired. Run `start_all.bat` again and keep the launcher, backend and frontend windows open. If tunnel startup fails, the launcher now pauses with diagnostics and retains the cloudflared logs in `%TEMP%`.
+4. *Words*: sign one word from start to finish, then lower your hands. The word is added when the sign ends.
    *Spell*: hold each letter still for about a second. *Phrase*: sign one phrase, then pick it from the top guesses.
-4. To teach it a new word, open **Teach a sign**, enter your name, pick or type the word and record it
+5. To teach it a new word, open **Teach a sign**, enter your name, pick or type the word and record it
    5 times. The word works in Communication straight away and is saved for the next training run.
-5. **SOS** (bottom-right, every page) opens the demo emergency assistant; it contacts no one.
+6. **SOS** (bottom-right, every page) opens the demo emergency assistant; it contacts no one.
 
 ## Optional phone-camera tools
 
 The merged workspace keeps its experimental Camo/OpenCV camera tracker under
 [`tools/phone-camera-prototype`](tools/phone-camera-prototype/README.md). It has a separate local
-dashboard and research data; it does not replace or alter the validated v11a recognizer used by
+dashboard and research data; it does not replace or alter the validated v15b recognizer used by
 SignLine. Its 7.2 GB of source media and prototype models are local-only and ignored by Git. Run
 `tools/phone-camera-prototype/start.bat` for local camera testing. The root `start.bat` exposes only
-the main backend API. `start_judges.bat` exposes the SignLine web app through the stable Worker URL;
+the main backend API. `start_all.bat` and `start_judges.bat` both start the complete SignLine web app
+through the stable Worker URL;
 anyone with that public link can use the judge preview while the laptop and tunnel remain running.
 Configure Google OAuth values in the local `app/backend/.env` using `.env.example`; register the
 Worker callback URL shown there in Google Cloud Console. Set `SIGNLINE_ADMIN_EMAILS` to the only
@@ -169,35 +172,72 @@ Backend: http://localhost:8000 (`/docs`, `/health`, `/labels`, `/predict`, `/rec
 Emergency API: `/api/v1/emergency/...`; responder desk at http://localhost:3000/responder (user `demo.responder`, password in `app/backend/var/demo_responder_credentials.txt` after the first start, or set `SIGNLINE_EM_DEMO_RESPONDER_PASSWORD`).
 Requires Python 3.12+ and Node 20+. An NVIDIA GPU is optional; the desktop launcher creates a separate runtime environment and installs CPU PyTorch for general PCs. The full `app/backend/requirements.txt` remains for training and GPU development.
 
-## Repository layout
+## Project structure
 
 ```
-app/
-  frontend/            React + Vite + Tailwind + Three.js app (pages, 3D avatar, MediaPipe tracker,
-                       signRecognizer WebSocket client)
-  backend/
-    mudra_api/         FastAPI service: /predict, /stream, /recordings, /reference, /library, /letters, /phrases
-    signline_emergency/  emergency assistant (rules, questions, state machine, responder API, migrations)
-    models/            word model (v8), letter model, phrase model (model files + model_card.json: classes, metrics,
-                       threshold, licences)
-    tests/             API, streaming, recording, sign-library and emergency tests
-training/
-  src/mudra_ml/        landmark extraction, normalisation, datasets, models, training, evaluation,
-                       streaming (segmenter + recogniser)
-  scripts/             audit, extract, split, train, ablate, evaluate, export, live-stream and few-shot benchmarks
-  configs/             data, experiment (experiments/mudra_words.yaml = the deployed model), streaming
-                       and few-shot settings
-  tests/               unit and end-to-end tests
-data/                  README only: datasets, manifests and splits are kept locally (see data/README.md)
-docs/
-  SIGN_LIBRARY.md      fingerspelling letters and phrases: data, method, results, limits, rebuild
-  SIGNLINE_EMERGENCY.md emergency assistant: behaviour, honesty rules, API, configuration, limits
-  AUDIT_2026-10-13.md  audit of results and claims
-  blueprints/          versioned development plans
-  MUDRA_MASTER_PLAN.md full analysis, dataset research, roadmap and dated progress log
-  architecture.md      system architecture
-  planning/            original project review documents
+Mudra/
+├── README.md, HANDOVER.md        overview; full handover (architecture, interfaces, models, change log) - read first
+├── AGENTS.md, CLAUDE.md          rules for people and AI agents working on the code
+├── start_all.bat                 Windows: creates the Python environment, installs packages, downloads the speech model,
+│                                 starts both servers
+├── tools/                        setup/ (speech model download, Chrome GPU setting), live_benchmark/ (camera tracking +
+│                                 recognition on this PC), meeting_tests/ (speech, voice route, extension tests); see its README
+├── app/
+│   ├── backend/                  FastAPI server (python main.py; port MUDRA_PORT, default 8000)
+│   │   ├── main.py               entry point
+│   │   ├── mudra_api/            recognition API
+│   │   │   ├── app.py            routes: /health /labels /models /predict /stream /recordings /reference /library ...
+│   │   │   ├── settings.py       environment settings (model paths, ports, CORS)
+│   │   │   ├── recognizer.py     word model loading + whole-clip prediction
+│   │   │   ├── recordings.py     Teach a sign: saved takes, custom-word bank
+│   │   │   ├── references.py     one real example per word (the avatar's signs)
+│   │   │   ├── library.py        fingerspelling letters and phrases
+│   │   │   ├── extra_models.py, auto_mode.py, static_pose.py, static_top10.py, isl500_video.py, safe_joblib.py
+│   │   │   │                     teammate models, Merged and Auto modes, safe loading of their files
+│   │   │   └── speech.py, speech_api.py   meetings: /tts (local voice), /asr + /captions (local speech recognition)
+│   │   ├── signline_emergency/   emergency assistant: config/, services/, api/, migrations/, models.py, retention.py
+│   │   ├── models/               deployed models (model.pt + model_card.json each): word model, letters, phrases,
+│   │   │                         teammate models
+│   │   ├── tests/                pytest: API, streaming, library, references, speech, emergency/
+│   │   ├── var/                  local data, not in git: emergency database and videos, speech models
+│   │   └── requirements.txt, .env.example, alembic.ini
+│   ├── frontend/                 React 18 + Vite + Tailwind + Three.js (npm run dev, port 3000)
+│   │   ├── public/               MediaPipe models/ and wasm/, ybot.glb avatar, brand/ icons, web app manifest
+│   │   └── src/
+│   │       ├── App.jsx, main.jsx routes, role guards, start-up loader
+│   │       ├── pages/            Communicate, Practice, Record (Teach a sign), Learn, Progress, Settings;
+│   │       │                     user/, admin/, auth/, game/, emergency/, legal/, meeting/ (Meet / Zoom panel),
+│   │       │                     dev/ (avatar QA, development builds only)
+│   │       ├── features/         emergency/, game/, practice/, meeting/ (captions, sign planning, voice), vocabulary.js
+│   │       ├── components/       shared UI: ui/, brand/, avatar/, communicate/, practice/, AccessibilityModal
+│   │       ├── avatar/           3D avatar: useAvatarRenderer.js, landmarkRetarget.js (recorded signs -> bones),
+│   │       │                     synthSigns.js, Animations/ (letter fallbacks, rest pose), avatarCatalog.js
+│   │       ├── services/         handTracker (MediaPipe), signRecognizer (WS /stream), islDictionary, clients
+│   │       ├── context/, layouts/  accessibility and session state; app shell
+│   │       └── assets/avatars/   optional extra avatar files (local only, see its README)
+│   └── meeting-extension/        Chrome extension for Google Meet / Zoom Web (load unpacked; docs/MEETING_INTEGRATION.md)
+├── training/                     model training (Python package mudra_ml)
+│   ├── src/mudra_ml/             landmarks, features, datasets, models, training, evaluation, streaming segmenter
+│   ├── scripts/                  extract, split, train, export, compare / evaluate (see training/README.md)
+│   ├── configs/                  data.yaml, streaming.json, fewshot.json, experiments/ (one YAML per model version)
+│   └── tests/                    unit and end-to-end tests
+├── data/                         README only: datasets, landmarks, recordings and splits stay on the local machine
+└── docs/
+    ├── MEETING_INTEGRATION.md    Google Meet / Zoom: extension, speech in and out, setup, tests, limits
+    ├── SIGN_LIBRARY.md           fingerspelling letters and phrases
+    ├── SIGNLINE_EMERGENCY.md     emergency assistant
+    ├── SCALING_VOCABULARY.md     barriers between words, growing the vocabulary
+    ├── TEAMMATE_MODELS.md        teammate models, Merged and Auto modes
+    ├── AUDIT_2026-10-13.md       audit of results and claims
+    ├── architecture.md           short architecture table
+    ├── MUDRA_MASTER_PLAN.md      original analysis, dataset research, dated progress log
+    ├── blueprints/               versioned development plans
+    └── planning/                 the client's original review documents
 ```
+
+Kept out of git (`.gitignore`): `node_modules/`, `.venv/`, datasets and recordings (`data/raw`, `data/processed`,
+`data/metadata`), training runs (`experiments/`), `app/backend/var/` (local databases, emergency videos, speech
+models), extra avatar files, `.env` files.
 
 ## Training workflow
 

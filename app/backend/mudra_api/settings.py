@@ -29,9 +29,13 @@ def _optional_float(name: str) -> float | None:
 @dataclass
 class Settings:
     model_dir: Path = field(
-        default_factory=lambda: Path(os.getenv("MUDRA_MODEL_DIR", BACKEND_DIR / "models" / "isl_mudra_combined_v11a_bilstm"))
+        default_factory=lambda: Path(os.getenv("MUDRA_MODEL_DIR", BACKEND_DIR / "models" / "isl_mudra_combined_v15b_bilstm"))
     )
     device: str = field(default_factory=lambda: os.getenv("MUDRA_DEVICE", "cpu"))
+    # Meeting speech (mudra_api/speech.py): streaming ASR model (sherpa-onnx, downloaded locally, not in git); the
+    # 2023-06-26 zipformer beat the 20M one on content words (it keeps the first word after silence), 2026-10-21
+    asr_model_dir: Path = field(default_factory=lambda: Path(os.getenv(
+        "MUDRA_ASR_MODEL_DIR", BACKEND_DIR / "var" / "asr_models" / "sherpa-onnx-streaming-zipformer-en-2023-06-26")))
     cors_origins: list[str] = field(default_factory=_origins)
     # Overrides the validation-chosen threshold from the model card when set.
     uncertain_threshold: float | None = field(default_factory=lambda: _optional_float("MUDRA_UNCERTAIN_THRESHOLD"))

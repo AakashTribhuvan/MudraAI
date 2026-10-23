@@ -1,0 +1,2126 @@
+{
+  "name": "isl_mudra_combined_v12c_bilstm",
+  "created": "2026-10-21T10:36:00+05:30",
+  "source_run": "combined_v12c_20261021-102112",
+  "task": "Isolated Indian Sign Language word recognition from MediaPipe hand + pose landmarks",
+  "classes": [
+    "ACTOR",
+    "ADULT",
+    "AFTERNOON",
+    "ALIVE",
+    "ALRIGHT",
+    "ANIMAL",
+    "ARTIST",
+    "ATTACK",
+    "AUTHOR",
+    "BABY",
+    "BAD",
+    "BAG",
+    "BALL",
+    "BANK",
+    "BATHROOM",
+    "BEAR",
+    "BEAUTIFUL",
+    "BED",
+    "BEDROOM",
+    "BICYCLE",
+    "BIG_LARGE",
+    "BILL",
+    "BIRD",
+    "BLACK",
+    "BLIND",
+    "BLUE",
+    "BOAT",
+    "BOOK",
+    "BOX",
+    "BOY",
+    "BREAK",
+    "BRINJAL",
+    "BROTHER",
+    "BROWN",
+    "BUDGET",
+    "BUS",
+    "BUSY",
+    "CABBAGE",
+    "CAMERA",
+    "CAR",
+    "CARD",
+    "CARROT",
+    "CAT",
+    "CAULIFLOWER",
+    "CELL_PHONE",
+    "CHAIR",
+    "CHEAP",
+    "CHILD",
+    "CHILLI",
+    "CITY",
+    "CLEAN",
+    "CLOCK",
+    "CLOSE",
+    "CLOTHING",
+    "COLD",
+    "COLOUR",
+    "COME",
+    "COMPUTER",
+    "COOK",
+    "COOL",
+    "COURT",
+    "COW",
+    "CROCODILE",
+    "CROWD",
+    "CRY",
+    "CUCUMBER",
+    "CURVED",
+    "DAUGHTER",
+    "DEAD",
+    "DEAF",
+    "DEATH",
+    "DEEP",
+    "DEER",
+    "DIRTY",
+    "DOCTOR",
+    "DOG",
+    "DOOR",
+    "DREAM",
+    "DRESS",
+    "DRINK",
+    "DRY",
+    "ELECTION",
+    "ELEPHANT",
+    "ENERGY",
+    "EVENING",
+    "EXAM",
+    "EXERCISE",
+    "EXPENSIVE",
+    "EX_MONSOON",
+    "FALL",
+    "FAMILY",
+    "FAMOUS",
+    "FAN",
+    "FAST",
+    "FATHER",
+    "FEDUP",
+    "FEMALE",
+    "FEVER",
+    "FISH",
+    "FLAT",
+    "FOOD",
+    "FRIDAY",
+    "FRIEND",
+    "FROM",
+    "GIFT",
+    "GIRAFFE",
+    "GIRL",
+    "GIVE",
+    "GOD",
+    "GOOD",
+    "GOOD_AFTERNOON",
+    "GOOD_EVENING",
+    "GOOD_MORNING",
+    "GOOD_NIGHT",
+    "GRANDFATHER",
+    "GRANDMOTHER",
+    "GREEN",
+    "GREY",
+    "GROUND",
+    "GUN",
+    "HAPPY",
+    "HARD",
+    "HAT",
+    "HE",
+    "HEALTHY",
+    "HEAVY",
+    "HELLO",
+    "HELP",
+    "HIGH",
+    "HORSE",
+    "HOSPITAL",
+    "HOT",
+    "HOUR",
+    "HOUSE",
+    "HOW_ARE_YOU",
+    "HOW_MUCH",
+    "HUG",
+    "HUSBAND",
+    "I",
+    "INDIA",
+    "INJURY",
+    "INTERVIEW",
+    "IT",
+    "I_AM_FINE",
+    "I_LOVE_YOU",
+    "JOB",
+    "JUMP",
+    "KARNATAKA",
+    "KEY",
+    "KING",
+    "KITCHEN",
+    "KNIFE",
+    "LAMP",
+    "LAPTOP",
+    "LAWYER",
+    "LEMON",
+    "LETTER",
+    "LIBRARY",
+    "LIGHT",
+    "LION",
+    "LOCATION",
+    "LOCK",
+    "LONG",
+    "LOOSE",
+    "LOUD",
+    "LOW",
+    "MALE",
+    "MAN",
+    "MANAGER",
+    "MARKET",
+    "MARRIAGE",
+    "MATHS",
+    "MAYBE",
+    "ME",
+    "MEAN",
+    "MEDICINE",
+    "MINUTE",
+    "MONDAY",
+    "MONEY",
+    "MONKEY",
+    "MONTH",
+    "MORNING",
+    "MOTHER",
+    "MOUSE",
+    "NARROW",
+    "NEED",
+    "NEIGHBOUR",
+    "NEW",
+    "NEWSPAPER",
+    "NICE",
+    "NIGHT",
+    "OFFICE",
+    "OLD",
+    "ONION",
+    "ORANGE",
+    "PAGE",
+    "PAINT",
+    "PANT",
+    "PAPER",
+    "PARENT",
+    "PARK",
+    "PATIENT",
+    "PEACE",
+    "PEACOCK",
+    "PEN",
+    "PENCIL",
+    "PHOTOGRAPH",
+    "PIGEON",
+    "PINK",
+    "PLANE",
+    "PLAYER",
+    "PLEASED",
+    "POCKET",
+    "POLICE",
+    "POOR",
+    "POUR",
+    "PRESIDENT",
+    "PRICE",
+    "PRIEST",
+    "PUNE",
+    "QUEEN",
+    "QUIET",
+    "RACE_ETHNICITY",
+    "RADIO",
+    "RADISH",
+    "RED",
+    "RELIGION",
+    "REPORTER",
+    "RESTAURANT",
+    "RICH",
+    "RING",
+    "SAD",
+    "SATURDAY",
+    "SCHOOL",
+    "SCIENCE",
+    "SCREEN",
+    "SEASON",
+    "SECOND",
+    "SECRETARY",
+    "SHALLOW",
+    "SHE",
+    "SHIRT",
+    "SHOES",
+    "SHORT",
+    "SICK",
+    "SIGN",
+    "SISTER",
+    "SKIRT",
+    "SLOW",
+    "SMALL_LITTLE",
+    "SOAP",
+    "SOFT",
+    "SOLDIER",
+    "SON",
+    "SPARROW",
+    "SPORT",
+    "SPRING",
+    "STILL",
+    "STORE_OR_SHOP",
+    "STREET_OR_ROAD",
+    "STRONG",
+    "STUDENT",
+    "SUIT",
+    "SUMMER",
+    "SUNDAY",
+    "SWITCH",
+    "TABLE",
+    "TALL",
+    "TEA",
+    "TEACHER",
+    "TEAM",
+    "TECHNOLOGY",
+    "TELEPHONE",
+    "TELEVISION",
+    "TEMPLE",
+    "THANK_YOU",
+    "THEY",
+    "THICK",
+    "THIN",
+    "THIS",
+    "THURSDAY",
+    "TIGER",
+    "TIGHT",
+    "TIME",
+    "TODAY",
+    "TOMORROW",
+    "TOOL",
+    "TRAIN",
+    "TRAIN_STATION",
+    "TRAIN_TICKET",
+    "TRANSPORTATION",
+    "TRUCK",
+    "TUESDAY",
+    "TURTLE",
+    "T_SHIRT",
+    "UGLY",
+    "UMBRELLA",
+    "UNCLE",
+    "UNIVERSITY",
+    "VEGETABLES",
+    "VOLCANO",
+    "WAITER",
+    "WAR",
+    "WARM",
+    "WATER",
+    "WE",
+    "WEAK",
+    "WEDNESDAY",
+    "WEEK",
+    "WET",
+    "WHAT_IS_YOUR_NAME",
+    "WHAT_TIME",
+    "WHITE",
+    "WIDE",
+    "WIFE",
+    "WINDOW",
+    "WINTER",
+    "WOMAN",
+    "WRITER",
+    "WRONG",
+    "YEAR",
+    "YELLOW",
+    "YESTERDAY",
+    "YOU",
+    "YOUNG",
+    "YOU_PLURAL",
+    "_BACKGROUND_"
+  ],
+  "model_config": {
+    "input_dim": 162,
+    "num_classes": 327,
+    "temporal": "bilstm",
+    "mlp_hidden": 256,
+    "mlp_out": 128,
+    "lstm_hidden": 256,
+    "lstm_layers": 2,
+    "tf_dim": 192,
+    "tf_layers": 4,
+    "tf_heads": 4,
+    "tf_ff": 384,
+    "max_len": 128,
+    "dropout": 0.3,
+    "head": "linear",
+    "cos_scale": 30.0,
+    "cos_margin": 0.25
+  },
+  "feature_config": {
+    "seq_len": 24,
+    "use_velocity": false,
+    "clip_value": 10.0,
+    "schema_version": 1,
+    "feature_dim": 162
+  },
+  "feature_mean": [
+    0.0,
+    0.0,
+    0.0,
+    -0.28972598910331726,
+    0.08405599743127823,
+    -0.12170600146055222,
+    -0.452318012714386,
+    0.2757290005683899,
+    -0.18573500216007233,
+    -0.5372139811515808,
+    0.4816009998321533,
+    -0.20457500219345093,
+    -0.5981590151786804,
+    0.6419780254364014,
+    -0.21032099425792694,
+    -0.20499099791049957,
+    0.4657439887523651,
+    -0.2759400010108948,
+    -0.3816240131855011,
+    0.728426992893219,
+    -0.2947460114955902,
+    -0.505020022392273,
+    0.7833399772644043,
+    -0.26803600788116455,
+    -0.5795829892158508,
+    0.7958909869194031,
+    -0.2396100014448166,
+    -0.06763800233602524,
+    0.5060830116271973,
+    -0.20526300370693207,
+    -0.27201399207115173,
+    0.7712519764900208,
+    -0.20590800046920776,
+    -0.4097520112991333,
+    0.8119339942932129,
+    -0.1574079990386963,
+    -0.4894689917564392,
+    0.8076419830322266,
+    -0.12851999700069427,
+    0.018178999423980713,
+    0.5164700150489807,
+    -0.12581199407577515,
+    -0.1669899970293045,
+    0.7528709769248962,
+    -0.11438299715518951,
+    -0.292944997549057,
+    0.7901089787483215,
+    -0.06614699959754944,
+    -0.368708997964859,
+    0.7792620062828064,
+    -0.0396139994263649,
+    0.06633500009775162,
+    0.5125659704208374,
+    -0.051281001418828964,
+    -0.0729300007224083,
+    0.7068579792976379,
+    -0.03919599950313568,
+    -0.17495399713516235,
+    0.7500380277633667,
+    -0.0037769998889416456,
+    -0.24225200712680817,
+    0.7457420229911804,
+    0.024995999410748482,
+    0.4460130035877228,
+    1.1336699724197388,
+    -0.6445900201797485,
+    0.0,
+    0.0,
+    0.0,
+    0.23508499562740326,
+    -0.02306699939072132,
+    -0.05969199910759926,
+    0.3995499908924103,
+    0.004433999769389629,
+    -0.12490399926900864,
+    0.5105379819869995,
+    0.0656680017709732,
+    -0.17068900167942047,
+    0.5902000069618225,
+    0.11934799700975418,
+    -0.2095160037279129,
+    0.25581100583076477,
+    0.030200999230146408,
+    -0.2402389943599701,
+    0.4383389949798584,
+    0.11849699914455414,
+    -0.29364100098609924,
+    0.5371410250663757,
+    0.13389800488948822,
+    -0.30292999744415283,
+    0.5898630023002625,
+    0.13464799523353577,
+    -0.30577901005744934,
+    0.16473299264907837,
+    0.07795900106430054,
+    -0.23398399353027344,
+    0.37539100646972656,
+    0.18341200053691864,
+    -0.27500200271606445,
+    0.4711650013923645,
+    0.2116760015487671,
+    -0.25887298583984375,
+    0.5137379765510559,
+    0.21354900300502777,
+    -0.25438201427459717,
+    0.10391200333833694,
+    0.12458200007677078,
+    -0.21863000094890594,
+    0.29804399609565735,
+    0.22627900540828705,
+    -0.24135300517082214,
+    0.3775550127029419,
+    0.2529670000076294,
+    -0.20767700672149658,
+    0.41009700298309326,
+    0.24976299703121185,
+    -0.19078800082206726,
+    0.0643789991736412,
+    0.17216899991035461,
+    -0.20535500347614288,
+    0.21277199685573578,
+    0.25519099831581116,
+    -0.21173499524593353,
+    0.27869001030921936,
+    0.2776010036468506,
+    -0.18321500718593597,
+    0.30884599685668945,
+    0.2733199894428253,
+    -0.161421000957489,
+    -0.42695900797843933,
+    0.652882993221283,
+    -1.1343849897384644,
+    0.008324000053107738,
+    -0.5769389867782593,
+    -1.9741699695587158,
+    0.10970599949359894,
+    -0.6803569793701172,
+    -1.827976942062378,
+    -0.10220099985599518,
+    -0.6802189946174622,
+    -1.8341269493103027,
+    0.49936699867248535,
+    0.01295199990272522,
+    0.04164399951696396,
+    -0.49936699867248535,
+    -0.01295199990272522,
+    -0.04164399951696396,
+    0.6359720230102539,
+    0.8433189988136292,
+    0.07868299633264542,
+    -0.7343950271606445,
+    0.7475320100784302,
+    -0.33997398614883423,
+    0.5433480143547058,
+    1.2966200113296509,
+    -0.8949369788169861,
+    -0.5423060059547424,
+    0.8213080167770386,
+    -1.4939130544662476,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "feature_std": [
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.6776959896087646,
+    0.8829479813575745,
+    0.8829479813575745,
+    0.8829479813575745,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    0.7644860148429871,
+    1.0929889678955078,
+    1.0929889678955078,
+    1.0929889678955078,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    0.5438420176506042,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "temperature": 0.6877740257219341,
+  "uncertain_threshold": 0.65,
+  "threshold_selection": {
+    "threshold": 0.65,
+    "target_accuracy": 0.985,
+    "minimum_threshold": 0.5,
+    "validation_curve": [
+      {
+        "threshold": 0.05,
+        "coverage": 1.0,
+        "accuracy_on_kept": 0.9830028328611898
+      },
+      {
+        "threshold": 0.1,
+        "coverage": 1.0,
+        "accuracy_on_kept": 0.9830028328611898
+      },
+      {
+        "threshold": 0.15,
+        "coverage": 1.0,
+        "accuracy_on_kept": 0.9830028328611898
+      },
+      {
+        "threshold": 0.2,
+        "coverage": 1.0,
+        "accuracy_on_kept": 0.9830028328611898
+      },
+      {
+        "threshold": 0.25,
+        "coverage": 1.0,
+        "accuracy_on_kept": 0.9830028328611898
+      },
+      {
+        "threshold": 0.3,
+        "coverage": 1.0,
+        "accuracy_on_kept": 0.9830028328611898
+      },
+      {
+        "threshold": 0.35,
+        "coverage": 0.9990557129367328,
+        "accuracy_on_kept": 0.9829867674858223
+      },
+      {
+        "threshold": 0.4,
+        "coverage": 0.9990557129367328,
+        "accuracy_on_kept": 0.9829867674858223
+      },
+      {
+        "threshold": 0.45,
+        "coverage": 0.9981114258734656,
+        "accuracy_on_kept": 0.9829706717123936
+      },
+      {
+        "threshold": 0.5,
+        "coverage": 0.9981114258734656,
+        "accuracy_on_kept": 0.9829706717123936
+      },
+      {
+        "threshold": 0.55,
+        "coverage": 0.996222851746931,
+        "accuracy_on_kept": 0.9829383886255925
+      },
+      {
+        "threshold": 0.6,
+        "coverage": 0.9952785646836638,
+        "accuracy_on_kept": 0.9838709677419355
+      },
+      {
+        "threshold": 0.65,
+        "coverage": 0.9924457034938622,
+        "accuracy_on_kept": 0.9857278782112274
+      },
+      {
+        "threshold": 0.7,
+        "coverage": 0.9858356940509915,
+        "accuracy_on_kept": 0.9885057471264368
+      },
+      {
+        "threshold": 0.75,
+        "coverage": 0.9820585457979226,
+        "accuracy_on_kept": 0.989423076923077
+      },
+      {
+        "threshold": 0.8,
+        "coverage": 0.9811142587346553,
+        "accuracy_on_kept": 0.9894128970163619
+      },
+      {
+        "threshold": 0.85,
+        "coverage": 0.9745042492917847,
+        "accuracy_on_kept": 0.9893410852713178
+      },
+      {
+        "threshold": 0.9,
+        "coverage": 0.9697828139754485,
+        "accuracy_on_kept": 0.9892891918208374
+      },
+      {
+        "threshold": 0.95,
+        "coverage": 0.9461756373937678,
+        "accuracy_on_kept": 0.9920159680638723
+      }
+    ]
+  },
+  "metrics": {
+    "validation": {
+      "accuracy": 0.9830028328611898,
+      "macro_f1": 0.9817495604532642,
+      "top5_accuracy": 0.9981114258734656
+    },
+    "test": {
+      "accuracy": 0.9828269484808454,
+      "top5_accuracy": 0.9993394980184941,
+      "macro_f1": 0.9839527392892603,
+      "weighted_f1": 0.982674375403997,
+      "ece": 0.007007179203544209,
+      "uncalibrated_ece": 0.10434891302833144
+    },
+    "test_samples": 1514
+  },
+  "data": {
+    "name": "INCLUDE (263 words) + MUDRA isolated-word videos (61 words, C:\\ISL\\archive)",
+    "pose_release": "INCLUDE via OpenHands (Zenodo 6674324); MUDRA words extracted locally with MediaPipe Tasks",
+    "license": "INCLUDE: CC-BY-4.0. MUDRA word videos: provided by the team; source and licence to be confirmed",
+    "attribution": "Sridhar et al., INCLUDE, ACM MM 2020; MUDRA team recordings."
+  },
+  "limitations": [
+    "Vocabulary is 327 classes (including _BACKGROUND_); MUDRA app words such as NAMASTE, WATER and HELP are not included.",
+    "Test clips come from the same signers and recording sessions as training clips (no dataset has signer IDs): 90% of INCLUDE test clips have a same-word training take 1-2 file numbers away, and every team-word test clip a take recorded within 2 minutes. Test accuracy therefore measures new takes by known signers, not new people; on held-out INCLUDE sessions the same recipe reaches about 67%.",
+    "Trained on isolated signs; live use cuts the stream into signs with the segmenter in streaming.py and classifies each whole sign once (no continuous sentence recognition).",
+    "Temperature and threshold are fitted on the validation split, which shares signers and sessions with training; confidence may be over-confident on new people, cameras or lighting."
+  ],
+  "per_word_test": {
+    "LOUD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "MEAN": {
+      "correct": 2,
+      "clips": 2
+    },
+    "RICH": {
+      "correct": 2,
+      "clips": 2
+    },
+    "POOR": {
+      "correct": 1,
+      "clips": 1
+    },
+    "THICK": {
+      "correct": 2,
+      "clips": 2
+    },
+    "THIN": {
+      "correct": 1,
+      "clips": 1
+    },
+    "EXPENSIVE": {
+      "correct": 2,
+      "clips": 2
+    },
+    "CHEAP": {
+      "correct": 2,
+      "clips": 2
+    },
+    "FLAT": {
+      "correct": 1,
+      "clips": 1
+    },
+    "CURVED": {
+      "correct": 1,
+      "clips": 1
+    },
+    "MALE": {
+      "correct": 1,
+      "clips": 2
+    },
+    "QUIET": {
+      "correct": 4,
+      "clips": 4
+    },
+    "FEMALE": {
+      "correct": 1,
+      "clips": 2
+    },
+    "TIGHT": {
+      "correct": 1,
+      "clips": 1
+    },
+    "LOOSE": {
+      "correct": 1,
+      "clips": 1
+    },
+    "HIGH": {
+      "correct": 2,
+      "clips": 2
+    },
+    "LOW": {
+      "correct": 1,
+      "clips": 1
+    },
+    "SOFT": {
+      "correct": 1,
+      "clips": 1
+    },
+    "HARD": {
+      "correct": 2,
+      "clips": 2
+    },
+    "DEEP": {
+      "correct": 2,
+      "clips": 2
+    },
+    "SHALLOW": {
+      "correct": 1,
+      "clips": 1
+    },
+    "CLEAN": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HAPPY": {
+      "correct": 5,
+      "clips": 5
+    },
+    "DIRTY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "STRONG": {
+      "correct": 2,
+      "clips": 2
+    },
+    "WEAK": {
+      "correct": 2,
+      "clips": 2
+    },
+    "DEAD": {
+      "correct": 1,
+      "clips": 1
+    },
+    "ALIVE": {
+      "correct": 1,
+      "clips": 1
+    },
+    "HEAVY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "LIGHT": {
+      "correct": 2,
+      "clips": 2
+    },
+    "FAMOUS": {
+      "correct": 1,
+      "clips": 1
+    },
+    "SAD": {
+      "correct": 1,
+      "clips": 1
+    },
+    "BEAUTIFUL": {
+      "correct": 1,
+      "clips": 1
+    },
+    "UGLY": {
+      "correct": 2,
+      "clips": 2
+    },
+    "DEAF": {
+      "correct": 1,
+      "clips": 1
+    },
+    "LONG": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SHORT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BLIND": {
+      "correct": 1,
+      "clips": 1
+    },
+    "TALL": {
+      "correct": 4,
+      "clips": 4
+    },
+    "WIDE": {
+      "correct": 2,
+      "clips": 4
+    },
+    "NARROW": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BIG_LARGE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SMALL_LITTLE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SLOW": {
+      "correct": 4,
+      "clips": 4
+    },
+    "FAST": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HOT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "COLD": {
+      "correct": 3,
+      "clips": 4
+    },
+    "WARM": {
+      "correct": 4,
+      "clips": 4
+    },
+    "NICE": {
+      "correct": 1,
+      "clips": 1
+    },
+    "COOL": {
+      "correct": 4,
+      "clips": 4
+    },
+    "NEW": {
+      "correct": 5,
+      "clips": 5
+    },
+    "OLD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "YOUNG": {
+      "correct": 4,
+      "clips": 4
+    },
+    "GOOD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BAD": {
+      "correct": 3,
+      "clips": 4
+    },
+    "WET": {
+      "correct": 4,
+      "clips": 4
+    },
+    "DRY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SICK": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HEALTHY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "DOG": {
+      "correct": 4,
+      "clips": 4
+    },
+    "CAT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "FISH": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BIRD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "COW": {
+      "correct": 4,
+      "clips": 4
+    },
+    "MOUSE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HORSE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "ANIMAL": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HAT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "DRESS": {
+      "correct": 3,
+      "clips": 4
+    },
+    "SUIT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SKIRT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SHIRT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "T_SHIRT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PANT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SHOES": {
+      "correct": 4,
+      "clips": 4
+    },
+    "POCKET": {
+      "correct": 4,
+      "clips": 4
+    },
+    "CLOTHING": {
+      "correct": 2,
+      "clips": 4
+    },
+    "RED": {
+      "correct": 4,
+      "clips": 4
+    },
+    "GREEN": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BLUE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "YELLOW": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BROWN": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PINK": {
+      "correct": 3,
+      "clips": 4
+    },
+    "ORANGE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BLACK": {
+      "correct": 3,
+      "clips": 4
+    },
+    "WHITE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "GREY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "COLOUR": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SUNDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "MONDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "TUESDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "WEDNESDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "THURSDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "FRIDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "SATURDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "TODAY": {
+      "correct": 2,
+      "clips": 2
+    },
+    "TOMORROW": {
+      "correct": 1,
+      "clips": 1
+    },
+    "YESTERDAY": {
+      "correct": 1,
+      "clips": 1
+    },
+    "WEEK": {
+      "correct": 1,
+      "clips": 1
+    },
+    "MONTH": {
+      "correct": 1,
+      "clips": 1
+    },
+    "YEAR": {
+      "correct": 1,
+      "clips": 1
+    },
+    "HOUR": {
+      "correct": 1,
+      "clips": 1
+    },
+    "MINUTE": {
+      "correct": 1,
+      "clips": 1
+    },
+    "SECOND": {
+      "correct": 2,
+      "clips": 2
+    },
+    "MORNING": {
+      "correct": 1,
+      "clips": 1
+    },
+    "AFTERNOON": {
+      "correct": 1,
+      "clips": 1
+    },
+    "EVENING": {
+      "correct": 1,
+      "clips": 1
+    },
+    "NIGHT": {
+      "correct": 1,
+      "clips": 1
+    },
+    "TIME": {
+      "correct": 1,
+      "clips": 1
+    },
+    "CLOCK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "LAMP": {
+      "correct": 3,
+      "clips": 3
+    },
+    "FAN": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CELL_PHONE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "COMPUTER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "LAPTOP": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SCREEN": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CAMERA": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TELEVISION": {
+      "correct": 2,
+      "clips": 3
+    },
+    "RADIO": {
+      "correct": 3,
+      "clips": 3
+    },
+    "HELLO": {
+      "correct": 7,
+      "clips": 7
+    },
+    "HOW_ARE_YOU": {
+      "correct": 4,
+      "clips": 4
+    },
+    "ALRIGHT": {
+      "correct": 3,
+      "clips": 4
+    },
+    "GOOD_MORNING": {
+      "correct": 7,
+      "clips": 7
+    },
+    "GOOD_AFTERNOON": {
+      "correct": 9,
+      "clips": 9
+    },
+    "GOOD_EVENING": {
+      "correct": 7,
+      "clips": 7
+    },
+    "GOOD_NIGHT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "THANK_YOU": {
+      "correct": 7,
+      "clips": 7
+    },
+    "PLEASED": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TABLE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CHAIR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BED": {
+      "correct": 3,
+      "clips": 3
+    },
+    "DREAM": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WINDOW": {
+      "correct": 3,
+      "clips": 3
+    },
+    "DOOR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BEDROOM": {
+      "correct": 3,
+      "clips": 3
+    },
+    "KITCHEN": {
+      "correct": 2,
+      "clips": 2
+    },
+    "BATHROOM": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PENCIL": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PEN": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PHOTOGRAPH": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SOAP": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BOOK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "KEY": {
+      "correct": 6,
+      "clips": 6
+    },
+    "PAGE": {
+      "correct": 2,
+      "clips": 2
+    },
+    "PAINT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PAPER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "LETTER": {
+      "correct": 2,
+      "clips": 2
+    },
+    "LOCK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TELEPHONE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BAG": {
+      "correct": 2,
+      "clips": 2
+    },
+    "BOX": {
+      "correct": 4,
+      "clips": 4
+    },
+    "GIFT": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CARD": {
+      "correct": 3,
+      "clips": 3
+    },
+    "RING": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TOOL": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TEACHER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "STUDENT": {
+      "correct": 3,
+      "clips": 3
+    },
+    "LAWYER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "DOCTOR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PATIENT": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WAITER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SECRETARY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PRIEST": {
+      "correct": 3,
+      "clips": 3
+    },
+    "POLICE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SOLDIER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ARTIST": {
+      "correct": 3,
+      "clips": 3
+    },
+    "AUTHOR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "MANAGER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "REPORTER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ACTOR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "JOB": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PLANE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "CAR": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TRUCK": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BICYCLE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BUS": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BOAT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TRAIN_TICKET": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TRANSPORTATION": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TRAIN": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SON": {
+      "correct": 4,
+      "clips": 4
+    },
+    "DAUGHTER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "MOTHER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "FATHER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PARENT": {
+      "correct": 3,
+      "clips": 4
+    },
+    "BABY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "MAN": {
+      "correct": 7,
+      "clips": 7
+    },
+    "WOMAN": {
+      "correct": 3,
+      "clips": 4
+    },
+    "BROTHER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SISTER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "FAMILY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "GRANDFATHER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "GRANDMOTHER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "HUSBAND": {
+      "correct": 4,
+      "clips": 4
+    },
+    "WIFE": {
+      "correct": 5,
+      "clips": 7
+    },
+    "KING": {
+      "correct": 4,
+      "clips": 4
+    },
+    "QUEEN": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PRESIDENT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "NEIGHBOUR": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BOY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "GIRL": {
+      "correct": 4,
+      "clips": 4
+    },
+    "CHILD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "ADULT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "FRIEND": {
+      "correct": 3,
+      "clips": 5
+    },
+    "PLAYER": {
+      "correct": 4,
+      "clips": 4
+    },
+    "CROWD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "CITY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HOUSE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "STREET_OR_ROAD": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TRAIN_STATION": {
+      "correct": 4,
+      "clips": 4
+    },
+    "RESTAURANT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "COURT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SCHOOL": {
+      "correct": 3,
+      "clips": 4
+    },
+    "OFFICE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "UNIVERSITY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "PARK": {
+      "correct": 4,
+      "clips": 4
+    },
+    "STORE_OR_SHOP": {
+      "correct": 2,
+      "clips": 3
+    },
+    "LIBRARY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "HOSPITAL": {
+      "correct": 4,
+      "clips": 4
+    },
+    "TEMPLE": {
+      "correct": 7,
+      "clips": 7
+    },
+    "MARKET": {
+      "correct": 3,
+      "clips": 3
+    },
+    "INDIA": {
+      "correct": 4,
+      "clips": 4
+    },
+    "GROUND": {
+      "correct": 4,
+      "clips": 4
+    },
+    "BANK": {
+      "correct": 4,
+      "clips": 4
+    },
+    "LOCATION": {
+      "correct": 4,
+      "clips": 4
+    },
+    "I": {
+      "correct": 5,
+      "clips": 5
+    },
+    "YOU": {
+      "correct": 3,
+      "clips": 4
+    },
+    "HE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SHE": {
+      "correct": 4,
+      "clips": 4
+    },
+    "IT": {
+      "correct": 4,
+      "clips": 4
+    },
+    "WE": {
+      "correct": 5,
+      "clips": 5
+    },
+    "YOU_PLURAL": {
+      "correct": 4,
+      "clips": 4
+    },
+    "THEY": {
+      "correct": 4,
+      "clips": 4
+    },
+    "SUMMER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SPRING": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WINTER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "FALL": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SEASON": {
+      "correct": 3,
+      "clips": 3
+    },
+    "EX_MONSOON": {
+      "correct": 3,
+      "clips": 3
+    },
+    "RELIGION": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ENERGY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WAR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PEACE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ATTACK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ELECTION": {
+      "correct": 3,
+      "clips": 3
+    },
+    "NEWSPAPER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "GUN": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SPORT": {
+      "correct": 3,
+      "clips": 3
+    },
+    "EXERCISE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BALL": {
+      "correct": 3,
+      "clips": 3
+    },
+    "DEATH": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PRICE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SIGN": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SCIENCE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "GOD": {
+      "correct": 3,
+      "clips": 3
+    },
+    "MEDICINE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "MONEY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BILL": {
+      "correct": 1,
+      "clips": 3
+    },
+    "MARRIAGE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TEAM": {
+      "correct": 3,
+      "clips": 3
+    },
+    "RACE_ETHNICITY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TECHNOLOGY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BEAR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BREAK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BRINJAL": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BUDGET": {
+      "correct": 3,
+      "clips": 3
+    },
+    "BUSY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CABBAGE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CARROT": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CAULIFLOWER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CHILLI": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CLOSE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "COME": {
+      "correct": 3,
+      "clips": 3
+    },
+    "COOK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CROCODILE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CRY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "CUCUMBER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "DEER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "DRINK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ELEPHANT": {
+      "correct": 3,
+      "clips": 3
+    },
+    "EXAM": {
+      "correct": 3,
+      "clips": 3
+    },
+    "FEDUP": {
+      "correct": 3,
+      "clips": 3
+    },
+    "FEVER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "GIRAFFE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "GIVE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "HUG": {
+      "correct": 3,
+      "clips": 3
+    },
+    "INJURY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "INTERVIEW": {
+      "correct": 3,
+      "clips": 3
+    },
+    "JUMP": {
+      "correct": 3,
+      "clips": 3
+    },
+    "KARNATAKA": {
+      "correct": 3,
+      "clips": 3
+    },
+    "KNIFE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "LEMON": {
+      "correct": 3,
+      "clips": 3
+    },
+    "LION": {
+      "correct": 3,
+      "clips": 3
+    },
+    "MATHS": {
+      "correct": 3,
+      "clips": 3
+    },
+    "MAYBE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "MONKEY": {
+      "correct": 3,
+      "clips": 3
+    },
+    "ONION": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PEACOCK": {
+      "correct": 3,
+      "clips": 3
+    },
+    "PIGEON": {
+      "correct": 3,
+      "clips": 3
+    },
+    "POUR": {
+      "correct": 3,
+      "clips": 3
+    },
+    "RADISH": {
+      "correct": 3,
+      "clips": 3
+    },
+    "SPARROW": {
+      "correct": 3,
+      "clips": 3
+    },
+    "STILL": {
+      "correct": 1,
+      "clips": 1
+    },
+    "SWITCH": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TEA": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TIGER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "TURTLE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "UMBRELLA": {
+      "correct": 3,
+      "clips": 3
+    },
+    "UNCLE": {
+      "correct": 3,
+      "clips": 3
+    },
+    "VEGETABLES": {
+      "correct": 3,
+      "clips": 3
+    },
+    "VOLCANO": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WHAT_IS_YOUR_NAME": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WRITER": {
+      "correct": 3,
+      "clips": 3
+    },
+    "WRONG": {
+      "correct": 3,
+      "clips": 3
+    },
+    "FOOD": {
+      "correct": 1,
+      "clips": 1
+    },
+    "FROM": {
+      "correct": 1,
+      "clips": 1
+    },
+    "HELP": {
+      "correct": 1,
+      "clips": 1
+    },
+    "HOW_MUCH": {
+      "correct": 1,
+      "clips": 1
+    },
+    "I_AM_FINE": {
+      "correct": 1,
+      "clips": 1
+    },
+    "I_LOVE_YOU": {
+      "correct": 1,
+      "clips": 1
+    },
+    "ME": {
+      "correct": 1,
+      "clips": 1
+    },
+    "NEED": {
+      "correct": 1,
+      "clips": 1
+    },
+    "PUNE": {
+      "correct": 1,
+      "clips": 1
+    },
+    "THIS": {
+      "correct": 1,
+      "clips": 1
+    },
+    "WATER": {
+      "correct": 1,
+      "clips": 1
+    },
+    "WHAT_TIME": {
+      "correct": 1,
+      "clips": 1
+    }
+  }
+}

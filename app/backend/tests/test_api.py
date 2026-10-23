@@ -20,10 +20,13 @@ from mudra_ml.preprocessing.sequence import load_sequence
 from mudra_api.app import create_app
 from mudra_api.settings import Settings
 
-MODEL_DIR = BACKEND / "models" / "isl_mudra_combined_v8_desk_bilstm"
+MODEL_DIR = Settings().model_dir  # the deployed word model (settings.py / MUDRA_MODEL_DIR)
 TEST_SPLIT = PROJECT_ROOT / "data" / "metadata" / "splits" / "include" / "test.csv"
 
 pytestmark = pytest.mark.skipif(not (MODEL_DIR / "model.pt").exists(), reason="exported model not present")
+# words the deployed model knows (its model card; classes starting with "_" are internal, e.g. _BACKGROUND_)
+NUM_SIGNS = (sum(not c.startswith("_") for c in json.loads((MODEL_DIR / "model_card.json").read_text(encoding="utf-8"))["classes"])
+             if (MODEL_DIR / "model_card.json").exists() else 0)
 
 
 @pytest.fixture(scope="module")
@@ -57,9 +60,9 @@ def held_out_clips(n: int) -> list[dict]:
 
 def test_health_and_labels(client):
     health = client.get("/health").json()
-    assert health["model_loaded"] and health["num_signs"] == 314
+    assert health["model_loaded"] and health["num_signs"] == NUM_SIGNS
     labels = client.get("/labels").json()
-    assert labels["count"] == 314
+    assert labels["count"] == NUM_SIGNS
     entry = next(x for x in labels["labels"] if x["sign"] == "GOOD_MORNING")
     assert entry["label"] == "Good morning" and isinstance(entry["has_reference"], bool)
     card = client.get("/model").json()
@@ -150,7 +153,7 @@ def test_missing_model_gives_clear_503(tmp_path):
     assert r.status_code == 503 and "export_model.py" in r.json()["detail"]
 
 
-COMBINED_DIR = BACKEND / "models" / "isl_mudra_combined_v8_desk_bilstm"
+COMBINED_DIR = MODEL_DIR
 COMBINED_TEST = PROJECT_ROOT / "data" / "metadata" / "splits" / "combined_words_v3" / "test.csv"
 
 
@@ -158,7 +161,7 @@ COMBINED_TEST = PROJECT_ROOT / "data" / "metadata" / "splits" / "combined_words_
 def test_combined_model_waits_for_the_whole_sign():
     """The start of a sign (rest + first moments) must give no_sign/uncertain, never a wrong word."""
     c = TestClient(create_app(Settings(model_dir=COMBINED_DIR, device="cpu")))
-    assert c.get("/health").json()["num_signs"] == 314
+    assert c.get("/health").json()["num_signs"] == NUM_SIGNS
     assert all(not item["sign"].startswith("_") for item in c.get("/labels").json()["labels"])
     with COMBINED_TEST.open(newline="", encoding="utf-8") as f:
         rows = [r for r in csv.DictReader(f) if r["source"] == "islwords"][:12]

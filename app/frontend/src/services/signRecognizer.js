@@ -9,9 +9,10 @@
  * Configure with VITE_API_URL (backend address) and VITE_SIGN_MODEL=off to disable.
  */
 
-export const API_BASE_URL = import.meta.env?.VITE_API_URL || (
-  import.meta.env?.MODE === 'electron' ? 'http://localhost:8000' : window.location.origin
-)
+const DEFAULT_API_BASE_URL = import.meta.env?.MODE === 'electron'
+  ? 'http://localhost:8000'
+  : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+export const API_BASE_URL = import.meta.env?.VITE_API_URL || DEFAULT_API_BASE_URL
 const MODE = import.meta.env?.VITE_SIGN_MODEL || 'auto'
 const WS_URL = API_BASE_URL.replace(/^http/, 'ws') + '/stream'
 const HEALTH_TIMEOUT_MS = 2500
@@ -128,6 +129,7 @@ class SignRecognizer {
       const d = results.diag
       this.ws.send(JSON.stringify({
         type: 'diag', camera_fps: d.cameraFps, tracking_fps: d.trackingFps, inference_ms: d.inferenceMs, delegate: d.delegate,
+        gpu: d.gpu, integrated_gpu: d.integratedGpu,
         camera: d.camera, width: results.width, height: results.height
       }))
     }

@@ -17,7 +17,8 @@ def client(tmp_path, monkeypatch):
     """A fresh database and an app with only the emergency router (the sign model is not needed)."""
     monkeypatch.setenv("SIGNLINE_EM_DEMO_RESPONDER_PASSWORD", PASSWORD)
     set_settings(EmergencySettings(database_url=f"sqlite:///{(tmp_path / 'em.db').as_posix()}",
-                                   secret_key="test-secret", demo_mode=True))
+                                   secret_key="test-secret", demo_mode=True, media_dir=str(tmp_path / "media"),
+                                   media_key_file=str(tmp_path / "media.key"), retention_interval_h=0))
     reset_engine()
     limiter.reset()
     set_provider(None)

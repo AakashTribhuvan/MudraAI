@@ -29,6 +29,7 @@ $stdoutPath = Join-Path $env:TEMP ("signline-judges-tunnel-{0}.out" -f [guid]::N
 $stderrPath = Join-Path $env:TEMP ("signline-judges-tunnel-{0}.err" -f [guid]::NewGuid())
 $process = $null
 $registered = $false
+$failed = $false
 try {
     $process = Start-Process -FilePath $cloudflaredPath `
         -ArgumentList @('tunnel', '--url', 'http://127.0.0.1:3000') `
@@ -36,7 +37,16 @@ try {
 
     Write-Host 'Opening a temporary tunnel to the SignLine web app.'
     Write-Host 'The permanent Worker URL will stay the same; keep this window open.'
-    while (-not $process.HasExited) {
+    while ($true) {
+        $process.Refresh()
+        if ($process.HasExited) {
+            throw "cloudflared exited with code $($process.ExitCode)."
+        }
+        if ($registered) {
+            Start-Sleep -Seconds 2
+            continue
+        }
+
         foreach ($logPath in @($stdoutPath, $stderrPath)) {
             if (-not (Test-Path -LiteralPath $logPath)) { continue }
             $logText = Get-Content -Raw -LiteralPath $logPath -ErrorAction SilentlyContinue
@@ -45,14 +55,20 @@ try {
             if ($matches.Count -eq 0) { continue }
             $tunnelUrl = $matches[$matches.Count - 1].Value
             $tunnelReady = $false
+            $lastHealthError = $null
             for ($probe = 0; $probe -lt 30; $probe++) {
                 try {
                     $null = Invoke-RestMethod -Uri "$tunnelUrl/health" -TimeoutSec 5
                     $tunnelReady = $true
                     break
-                } catch { Start-Sleep -Seconds 2 }
+                } catch {
+                    $lastHealthError = $_.Exception.Message
+                    Start-Sleep -Seconds 2
+                }
             }
-            if (-not $tunnelReady) { throw "Quick Tunnel did not reach the SignLine frontend and backend at $tunnelUrl." }
+            if (-not $tunnelReady) {
+                throw "Quick Tunnel did not reach the SignLine app at $tunnelUrl. Last health-check error: $lastHealthError"
+            }
 
             $body = @{ target = $tunnelUrl } | ConvertTo-Json -Compress
             $updated = Invoke-RestMethod -Uri "$workerUrl/__update" -Method Post `
@@ -66,15 +82,23 @@ try {
             try { Set-Clipboard -Value $workerUrl; Write-Host 'The judge URL was copied to the clipboard.' } catch { }
             break
         }
-        if ($registered) { Start-Sleep -Seconds 1; $process.Refresh(); continue }
         Start-Sleep -Seconds 1
-        $process.Refresh()
     }
-    if ($process.ExitCode -ne 0) { throw "cloudflared exited with code $($process.ExitCode)." }
-    if (-not $registered) { throw 'cloudflared stopped before reporting a Quick Tunnel URL.' }
+} catch {
+    $failed = $true
+    Write-Host ''
+    Write-Host "Tunnel startup failed: $($_.Exception.Message)"
+    if (Test-Path -LiteralPath $stderrPath) {
+        Write-Host 'Recent cloudflared diagnostics:'
+        Get-Content -LiteralPath $stderrPath -Tail 30 -ErrorAction SilentlyContinue
+    }
+    Write-Host "Diagnostic logs retained at: $stdoutPath and $stderrPath"
+    throw
 } finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id; $process.WaitForExit() }
-    foreach ($logPath in @($stdoutPath, $stderrPath)) {
-        if (Test-Path -LiteralPath $logPath) { Remove-Item -LiteralPath $logPath -Force }
+    if (-not $failed) {
+        foreach ($logPath in @($stdoutPath, $stderrPath)) {
+            if (Test-Path -LiteralPath $logPath) { Remove-Item -LiteralPath $logPath -Force }
+        }
     }
 }

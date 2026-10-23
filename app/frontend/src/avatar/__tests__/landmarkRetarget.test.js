@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { buildRig, letterClip, solveClip, trimRest } from '../landmarkRetarget'
+import { buildRig, despike, letterClip, solveClip, trimRest, unwrapAngle } from '../landmarkRetarget'
+import { glideDuration } from '../useAvatarRenderer'
 import { SYNTH_SIGNS } from '../synthSigns'
 
 /** A tiny Mixamo-named skeleton in T-pose: shoulders at +-0.2, arms along +-x, hands with three fingers. */
@@ -91,5 +92,69 @@ describe('landmark retargeting', () => {
     expect(p[15][1]).toBeGreaterThan(p[13][1]) // left wrist below the left elbow (y down)
     expect(p[13][1]).toBeGreaterThan(p[11][1]) // elbow below the shoulder
     expect(clip.frames[0].world.hands[0]).toBeNull()
+  })
+
+  it('keeps the true hand scale when a photo foreshortens the palm (letter A cause)', () => {
+    const rig = buildRig(makeSkeleton(), find)
+    // the same flat hand, once as seen straight on and once with the palm (wrist -> knuckles) squashed to 40%,
+    // as when the palm tilts towards the camera; the fingers keep their length
+    const hand = (dx, squash) => {
+      const pts = Array.from({ length: 21 }, () => [0, 0, 0])
+      const knuckle = (i, x) => { pts[i] = [x, -0.09 * squash, 0] }
+      knuckle(5, 0.02); knuckle(9, 0); knuckle(13, -0.015); knuckle(17, -0.03)
+      for (const [base, x] of [[5, 0.02], [9, 0], [13, -0.015], [17, -0.03]]) {
+        for (let k = 1; k <= 3; k++) pts[base + k] = [x, pts[base][1] - 0.03 * k, 0]
+      }
+      for (let k = 1; k <= 4; k++) pts[k] = [0.03 + 0.01 * k, -0.02 * k, 0]
+      return pts.map(([x, y, z]) => [0.5 + x + dx, 0.5 + y, z])
+    }
+    const gap = (squash) => {
+      const clip = letterClip(rig, { fps: 15, frames: [{ hands: [hand(0.15, squash), hand(-0.15, squash)], pose: null }] })
+      const p = clip.frames[0].world.pose
+      return Math.abs(p[15][0] - p[16][0])
+    }
+    expect(gap(0.4)).toBeLessThan(gap(1) * 1.15) // before the fix the squashed palm made the gap 2.5x larger
+    expect(gap(0.4)).toBeGreaterThan(gap(1) * 0.85)
+  })
+
+  it('returns no letter clip without hand data (missing or invalid reference)', () => {
+    const rig = buildRig(makeSkeleton(), find)
+    expect(letterClip(rig, null)).toBeNull()
+    expect(letterClip(rig, { frames: [] })).toBeNull()
+    expect(letterClip(rig, { fps: 15, frames: [{ hands: [null, null], pose: null }] })).toBeNull()
+  })
+
+  it('keeps twist angles continuous across +-180 deg without drifting', () => {
+    const near = Math.PI - 0.05
+    expect(unwrapAngle(near, -near)).toBeCloseTo(Math.PI + 0.05) // crossing 180 deg: no jump to -175 deg
+    expect(unwrapAngle(Math.PI + 0.5, 0.1)).toBeCloseTo(0.1) // never beyond the bound, so limits stay meaningful
+    expect(unwrapAngle(undefined, 1)).toBe(1)
+  })
+
+  it('removes one-frame landmark spikes but keeps steady motion', () => {
+    const track = [0, 0.1, 5, 0.3, 0.4].map((v) => [[v, 0, 0]])
+    const out = despike(track)
+    expect(out[2][0][0]).toBeCloseTo(0.3) // the spike is replaced by its neighbours' range
+    expect(out[1][0][0]).toBeCloseTo(0.1)
+    const ramp = despike([0, 1, 2, 3].map((v) => [[v, 0, 0]]))
+    expect(ramp.map((f) => f[0][0])).toEqual([0, 1, 2, 3])
+  })
+
+  it('never turns a bone faster than a person can (no one-frame flips)', () => {
+    const root = makeSkeleton()
+    const rig = buildRig(root, find)
+    // the left forearm points forward, then straight back the next frame (a 180 deg flip)
+    const fwd = pose({ 11: [0.6, 0.4], 13: [0.7, 0.4], 15: [0.8, 0.4], 12: [0.4, 0.4], 14: [0.4, 0.6], 16: [0.4, 0.8] })
+    const back = pose({ 11: [0.6, 0.4], 13: [0.7, 0.4], 15: [0.6, 0.41], 12: [0.4, 0.4], 14: [0.4, 0.6], 16: [0.4, 0.8] })
+    const frames = solveClip(rig, { fps: 15, width: 100, height: 100, frames: [fwd, fwd, back, back].map((p) => ({ pose: p, hands: [null, null] })) })
+    const fore = root.getObjectByName('mixamorigLeftForeArm')
+    const deg = (a, b) => THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(a.dot(b)))))
+    for (let i = 1; i < frames.length; i++) expect(deg(frames[i - 1].get(fore), frames[i].get(fore))).toBeLessThanOrEqual(900 / 15 + 0.5)
+  })
+
+  it('times the glide between signs by how far the joints travel', () => {
+    expect(glideDuration(0)).toBe(160)
+    expect(glideDuration(120)).toBeGreaterThan(glideDuration(30))
+    expect(glideDuration(1000)).toBe(620)
   })
 })

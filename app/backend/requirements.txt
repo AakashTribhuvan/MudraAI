@@ -6,12 +6,17 @@
 fastapi==0.142.2
 uvicorn[standard]==0.54.0
 pydantic==2.13.5
+python-multipart==0.0.20
 google-auth[requests]==2.62.0
 python-dotenv==1.2.4
 
 # SignLine Emergency (database + migrations)
 SQLAlchemy==2.1.4
 alembic==1.20.0
+cryptography==50.0.2
+
+# Meeting speech recognition (mudra_api/speech.py; the model files go in var/asr_models, see docs/MEETING_INTEGRATION.md)
+sherpa-onnx==1.13.8
 
 # Deep learning
 torch==2.11.0+cu128

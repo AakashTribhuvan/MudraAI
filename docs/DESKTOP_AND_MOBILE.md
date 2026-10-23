@@ -2,9 +2,9 @@
 
 The frontend can run inside Electron on Windows, macOS and Linux. Electron does not run on iOS or Android. The existing PWA manifest supports installing SignLine from a supported mobile browser; a Capacitor wrapper is the native-app path if a store-installable phone app is needed later.
 
-`Mudra` is the canonical combined project: it already contains the React app, FastAPI service, training pipeline and validated v11a word model. The `MudraTraining` copy has the same v11a weights. The separate phone-webcam prototype is a Camo camera diagnostic; SignLine can use that camera through its normal camera selector, while a phone opening the PWA uses its own browser camera. Experimental static-pose matching from the prototype is not the default recognizer.
+`Mudra` is the canonical combined project: it already contains the React app, FastAPI service, training pipeline and validated v15b word model. The separate phone-webcam prototype is a Camo camera diagnostic; SignLine can use that camera through its normal camera selector, while a phone opening the PWA uses its own browser camera. Experimental static-pose matching from the prototype is not the default recognizer.
 
-On phones, Communication requests a portrait camera stream when available, sizes the preview to the live frame, and draws each detected hand's padded box in camera coordinates clipped to the frame. This keeps the box inside the preview when the phone camera negotiates a different orientation or resolution.
+On phones, Communication requests a portrait camera stream when available, sizes the preview to the live frame, and draws each detected hand's padded box in camera coordinates clipped to the frame. Below 768 px, the camera uses a taller viewport-aware height and the detected sign and meaning are arranged directly under it; the model controls and remaining panels follow. This keeps the box inside the preview when the phone camera negotiates a different orientation or resolution.
 
 ## Desktop development (no installer)
 

@@ -36,6 +36,50 @@ Responders sign in at `/responder/login` and see only delivered reports: facts g
 came from, the sign sequence with confidences, answers, location if shared, communication needs, the
 status timeline and delivery attempts. They can acknowledge, add notes (responders only) and resolve.
 
+## Personal gestures with a video, emergency numbers and the dial screen (2026-10-21)
+
+- **Add gesture** is a three-step wizard: details (name, description, category, message, emergency service),
+  an optional camera recording, then consent and save. The camera is requested only when the user presses
+  *Record gesture*; there is a live preview, a red *Recording* indicator, Start / Stop / Preview / Retake and an
+  automatic stop after 20 s (`features/emergency/recorder.js`, browser APIs injected so it is unit-tested).
+  Denied permission, no camera, a busy camera or a browser without `MediaRecorder` all offer *Save without a
+  recording*. The video is uploaded only with the consent box ticked; without it the gesture is saved alone.
+- **Recording does not train recognition.** Gestures are still used by tapping them; camera recognition of
+  personal gestures is future work.
+- Every saved gesture is a card that opens a **detail page**: all details, the video, *Edit*, *Retake video*,
+  *Delete video*, *Delete* (gesture and video), *Test gesture* (sends nothing) and *Request emergency assistance*.
+- **Request emergency assistance** opens a review screen: the emergency service and number (changeable;
+  default 112), an optional location (typed, or the browser's location after its permission prompt), the
+  message line by line with provenance (`USER_REPORTED` / `SYSTEM_GENERATED`), and the video. *Call emergency
+  number* asks for confirmation, then opens the phone's dialer with a `tel:` link: the user presses call, the
+  app states it cannot tell whether the call connected, and a call does not carry the message or video.
+  *Share emergency report* is separate: the phone's share sheet, with the video only if the user ticks it and
+  the device can attach files (otherwise text only, or copy to the clipboard). The share sheet can only reach
+  *Sharing started*: SignLine never claims delivery for it.
+- **Send to the SignLine responder desk (demo)** on the same screen goes through the normal flow:
+  `POST /gestures/{id}/request-assistance` creates a session from the gesture, adds the location, reviews and
+  confirms it (status *Ready to share*; nothing shared). The session page then shares it with the existing
+  share button and shows *Delivered* (with the simulated receipt), *Acknowledged*, *Resolved* or *Not delivered*
+  with *Try again*. The gesture video goes with it only if the user ticks the consent box: the incident gets its
+  own encrypted copy (`video_sharing_status` ATTACHED -> DELIVERED / FAILED), so deleting the gesture does not
+  remove what was shared. Responders see the gesture report, the chosen number and, for a delivered report
+  with a consented video, a *Show video* button (`GET /responder/incidents/{id}/video`; every view is audited).
+- **Emergency numbers** live in `config/emergency_contacts.json` (regions; India national entries: 112, 100,
+  101, 102, 108, 103, 1073, 1033, 181, 1098, 1930, 1070, 139). All are `verified: false` until checked against
+  a current authoritative source (112.gov.in, india.gov.in/directory/helpline); state entries can be added.
+- **Video privacy:** this is the one place SignLine stores video. Only after recording consent (time stored),
+  under a random key in `app/backend/var/emergency_media/` (git-ignored), served only to the owning device
+  (`X-Device-Key`), checked on upload (WebM / MP4 by content, not only the declared type; at most 25 MB and
+  30 s), replaced on retake, overwritten and deleted with its gesture, never logged, analysed or used for
+  training. **Encrypted at rest** with AES-256-GCM (`cryptography`; the storage key is authenticated, so a file
+  cannot be renamed into another record; a damaged or swapped file is refused with 503). The key is
+  `SIGNLINE_EM_MEDIA_KEY` (base64, 32 bytes) or is generated once into `app/backend/var/emergency_media.key`
+  (git-ignored; losing it makes stored videos unreadable).
+- **Retention** (`retention.py`, at server start and every `SIGNLINE_EM_RETENTION_INTERVAL_H` hours, default 24):
+  ended sessions older than `SIGNLINE_EM_RETENTION_DAYS` with their incident and its video copy; gesture videos
+  `SIGNLINE_EM_GESTURE_VIDEO_RETENTION_DAYS` (default 365) after recording (the gesture stays); video files no
+  record refers to, after an hour. The log keeps counts only.
+
 ## Honesty rules built into the feature
 
 - **Recognition is simulated in demo mode.** The deployed SignLine model (v8, 314 words) does not know
@@ -51,7 +95,8 @@ status timeline and delivery attempts. They can acknowledge, add notes (responde
 - **Distinct states:** report prepared, shared, acknowledged and resolved are different statuses; a
   delivery is *delivered* only when the destination received it. The mock dispatcher delivers to the
   in-app responder desk and returns receipts marked simulated (`SIM-…`).
-- **Privacy:** no video or images are stored; location only when the user shares it; analytics keep
+- **Privacy:** no video or images are stored except a personal gesture's demonstration video, and only with
+  the user's recording consent (see above); location only when the user shares it; analytics keep
   only event types, times, session ids and non-sensitive fields (category, counts, source), never
   signs, messages, summaries or locations; routine logs carry no report content.
 
@@ -133,7 +178,12 @@ Responders can only set `ACKNOWLEDGED` and `RESOLVED`. The report is locked afte
 | `POST /sessions/{id}/questions/{qid}/answer\|skip` | session | questions |
 | `PUT\|DELETE /sessions/{id}/location` | session | share or remove a location |
 | `POST /sessions/{id}/review\|correction\|confirm\|share\|cancel` | session | review and sharing flow |
-| `GET\|POST /gestures`, `PATCH\|DELETE /gestures/{id}`, `POST /gestures/{id}/test` | device | personal gestures (test sends nothing) |
+| `GET\|POST /gestures`, `PATCH\|DELETE /gestures/{id}`, `POST /gestures/{id}/test` | device | personal gestures (test sends nothing; delete removes the video too) |
+| `PUT\|GET\|DELETE /gestures/{id}/video` | device | demonstration video: multipart `file`, `duration_s`, `recording_consent=true` (422 without consent or for a bad file, 503 if storage fails) |
+| `POST /gestures/{id}/report` `{contact_id?, location_text?}` | device | the message for the dial / share screen, line by line with provenance, `dial_link`; sends nothing |
+| `GET /contacts?region=` | – | emergency numbers (`config/emergency_contacts.json`), default 112 |
+| `POST /gestures/{id}/request-assistance` `{contact_id?, location?, include_video, sharing_consent}` | device | session + confirmed incident from the gesture, status READY_TO_SHARE → `{session, access_token, report}`; video only with `sharing_consent` |
+| `GET /responder/incidents/{id}/video` | responder | the consented video of a delivered report (audited) |
 | `GET\|PUT /preferences` | device | communication needs |
 | `POST /responder/login`, `GET /responder/me` | –, responder | responder sign-in |
 | `GET /responder/incidents?status=`, `GET /responder/incidents/{id}` | responder | delivered reports only |
@@ -173,7 +223,16 @@ active emergency session to `POST /sessions/{id}/provider-events`; (3) set
 
 ## Tests
 
-`app/backend/tests/emergency/` (29 tests, a fresh SQLite database each): scenarios A–I end to end;
+`app/backend/tests/emergency/` (54 tests; 9 in `test_gesture_assistance.py`: prepared-not-shared, delivered with
+receipt, acknowledged, video to responders only with sharing consent and only after delivery, the incident's own
+copy, delivery failure, encryption at rest, tampering and wrong key, key from env or file, retention of incident /
+gesture / orphan videos and dry run. Before that 45 tests, a fresh SQLite database and media folder each; 16 in
+`test_gesture_video.py`: gestures with and without video, retake, delete with video, consent, file type /
+content / size / duration checks, owner-only access, storage failure, contacts, report content and provenance,
+destination change, dial-link sanitising, no video or report details in analytics). Frontend:
+`features/emergency/__tests__/recorder.test.js` (permission granted / denied / no camera / unsupported, start /
+stop / preview / retake / too short, camera released, dial links, share with and without video, statuses never
+claim delivery). Earlier tests: scenarios A–I end to end;
 state-machine rules; confirmation lock; cancellation; unknown, low-confidence and repeated signs;
 remove / undo / reset; user correction wins; buttons as user-reported; answer validation and skip;
 location question withdrawn after sharing; location validation; gestures (CRUD, test, trigger,
@@ -185,6 +244,8 @@ translation; every matched rule recorded.
 ## Known limits
 
 - Camera recognition is not connected (see above); personal gestures are tapped, not detected by camera.
+- Emergency numbers are not verified (and no state-specific entries yet). Overwriting a deleted video is best
+  effort on SSDs; the files are encrypted, so leftover blocks are unreadable without the key.
 - The only dispatch destination is the in-app demo responder desk; no SMS, call or emergency-service
   integration exists or is claimed.
 - Rate limits and the random default secret key are per server process; a multi-process deployment

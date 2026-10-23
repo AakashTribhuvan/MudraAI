@@ -72,15 +72,51 @@ const POSE_OPTIONS = {
 // one is kept and remembered in this browser (DELEGATE_KEY), so the next session starts with it.
 const PROBE_WARMUP = 5
 const POSE_SLOW_MS = 50
+// pose on every frame below POSE_FAST_MS per frame (hands + pose), back to every other frame above POSE_BACK_MS
+// (two limits, so the rate does not flip on every frame around one value)
+const POSE_FAST_MS = 22
+const POSE_BACK_MS = 30
 const PROBE_FRAMES = 20
 const SLOW_MS = 35
 const DELEGATE_KEY = 'signline_tracker_delegate'
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
-const readDelegate = () => {
-  try { return JSON.parse(localStorage.getItem(DELEGATE_KEY) || 'null')?.delegate || 'GPU' } catch { return 'GPU' }
+const DECISION_DAYS = 30 // a measured choice is kept this long, then measured again (drivers change)
+const readSaved = () => {
+  try { return JSON.parse(localStorage.getItem(DELEGATE_KEY) || 'null') } catch { return null }
+}
+const readDelegate = () => readSaved()?.delegate || 'GPU'
+/** True when this browser already measured both delegates recently: no more probing, no model swaps. */
+const decided = () => {
+  const s = readSaved()
+  return Boolean(s?.timings && s.timings.GPU != null && s.timings.CPU != null && Date.now() - (s.at || 0) < DECISION_DAYS * 864e5)
 }
 const saveDelegate = (delegate, timings) => {
   try { localStorage.setItem(DELEGATE_KEY, JSON.stringify({ delegate, timings, at: Date.now() })) } catch { /* private window */ }
+}
+
+/**
+ * The GPU the browser draws with (WebGL renderer name), e.g. "Intel(R) UHD Graphics" or "NVIDIA GeForce RTX 5060".
+ * integrated: an on-chip GPU. On a laptop that also has an NVIDIA / AMD card, Windows gives Chrome the on-chip one
+ * unless Chrome is set to "High performance" (measured on the development laptop: 46 ms -> 17 ms per frame).
+ */
+/** WebGL renderer name -> { name: short readable name, integrated: an on-chip GPU }. */
+export function describeGpu(renderer = '') {
+  // "ANGLE (Intel, Intel(R) UHD Graphics (0x0000A7A8) Direct3D11 vs_5_0 ps_5_0, D3D11)" -> "Intel(R) UHD Graphics"
+  const name = renderer.replace(/^ANGLE \([^,]+,\s*/, '').replace(/\s*\(0x[0-9a-f]+\).*$/i, '').replace(/\s*Direct3D.*$/, '').trim()
+  return { name, integrated: /intel|uhd|iris|radeon\(tm\) graphics|vega \d+ graphics|microsoft basic|swiftshader/i.test(renderer) }
+}
+
+let gpuCache = null
+export function browserGpu() {
+  if (gpuCache) return gpuCache
+  let renderer = ''
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl')
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info')
+    renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''
+  } catch { renderer = '' }
+  gpuCache = describeGpu(renderer)
+  return gpuCache
 }
 
 const ema = (prev, value, k = 0.1) => (prev ? (1 - k) * prev + k * value : value)
@@ -158,6 +194,7 @@ class HandTrackerService {
       this.handLandmarker = hands.landmarker
       this.poseLandmarker = pose.landmarker
       this.delegate = hands.delegate === 'GPU' && pose.delegate === 'GPU' ? 'GPU' : 'CPU'
+      this._warmUp()
       return this
     })().catch((error) => {
       this.initializationPromise = null
@@ -166,6 +203,35 @@ class HandTrackerService {
     })
 
     return this.initializationPromise
+  }
+
+  /**
+   * The first detections compile the GPU programs: measured 3-5 s for the first frame (2026-10-21), which froze the
+   * picture and lost the first sign after Start. Two detections on a blank image while the page loads do it before
+   * the camera starts. Timestamps 1, 2 stay below the real ones (performance.now()).
+   */
+  _warmUp() {
+    try {
+      const blank = document.createElement('canvas')
+      blank.width = 640
+      blank.height = 480
+      blank.getContext('2d').fillRect(0, 0, 640, 480)
+      const t0 = performance.now()
+      for (const ts of [1, 2]) {
+        this.handLandmarker.detectForVideo(blank, ts)
+        this.poseLandmarker.detectForVideo(blank, ts)
+      }
+      this.lastTimestamp = 2
+      this.warmUpMs = Math.round(performance.now() - t0)
+    } catch (err) {
+      console.warn('Tracker warm-up failed (the first frames will be slow):', err)
+    }
+  }
+
+  /** Loads and warms up the trackers in the background when a camera page opens (no camera access). */
+  preload() {
+    if (!this.preloading) this.preloading = this.initialize().catch(() => null)
+    return this.preloading
   }
 
   /**
@@ -271,10 +337,25 @@ class HandTrackerService {
     video.requestVideoFrameCallback(onFrame)
   }
 
-  /** Times the current delegate; if slow, loads and times the other one, keeps the faster (see SLOW_MS). */
-  _probeDelegate(ms) {
-    const p = (this.probe ||= { samples: [], timings: {}, done: false, loading: false })
-    if (p.done || p.loading) return
+  /**
+   * Times the current delegate on the live camera; if slow, loads and times the other one and keeps the faster (see
+   * SLOW_MS). Measured on real frames (blank frames favour the CPU wrongly: no hands = a different workload). A swap
+   * is applied only on a frame without hands, so it never interrupts a sign, and the decision is kept in this browser
+   * for DECISION_DAYS, so later sessions do not probe at all.
+   */
+  _probeDelegate(ms, handsInView) {
+    const p = (this.probe ||= { samples: [], timings: {}, done: decided(), loading: false })
+    if (p.swap && !handsInView) { // apply a pending swap between signs
+      const { hands, pose, delegate, closeOld } = p.swap
+      p.swap = null
+      if (closeOld) { this.handLandmarker.close?.(); this.poseLandmarker.close?.() } // only once they are replaced
+      this.handLandmarker = hands
+      this.poseLandmarker = pose
+      this.lastPose = null
+      this.delegate = delegate
+      return
+    }
+    if (p.done || p.loading || p.swap) return
     p.samples.push(ms)
     if (p.samples.length < PROBE_WARMUP + PROBE_FRAMES) return
     const current = this.delegate
@@ -288,60 +369,91 @@ class HandTrackerService {
         PoseLandmarker.createFromOptions(this.vision, { ...POSE_OPTIONS, baseOptions: { ...POSE_OPTIONS.baseOptions, delegate: other } })
       ]).then(([hands, pose]) => {
         p.previous = { delegate: current, hands: this.handLandmarker, pose: this.poseLandmarker }
-        this.handLandmarker = hands
-        this.poseLandmarker = pose
-        this.lastPose = null
-        this.delegate = other
+        const blank = document.createElement('canvas') // compile the new delegate's GPU programs before using it
+        blank.width = 64
+        blank.height = 48
+        hands.detectForVideo(blank, ++this.lastTimestamp)
+        pose.detectForVideo(blank, this.lastTimestamp)
+        p.swap = { hands, pose, delegate: other }
       }).catch((err) => {
         console.warn(`${other} delegate could not be loaded:`, err)
         p.done = true
       }).finally(() => { p.loading = false })
       return
     }
-    // decision: the faster delegate stays, the other is closed
+    // decision: the faster delegate stays, the other is closed (going back also waits for a frame without hands)
     if (p.previous && p.timings[p.previous.delegate] < p.timings[current]) {
-      this.handLandmarker.close?.()
-      this.poseLandmarker.close?.()
-      this.handLandmarker = p.previous.hands
-      this.poseLandmarker = p.previous.pose
-      this.lastPose = null
-      this.delegate = p.previous.delegate
+      p.swap = { hands: p.previous.hands, pose: p.previous.pose, delegate: p.previous.delegate, closeOld: true }
     } else if (p.previous) {
       p.previous.hands.close?.()
       p.previous.pose.close?.()
     }
     p.previous = null
     p.done = true
-    saveDelegate(this.delegate, p.timings)
-    console.info('Hand tracking delegate:', this.delegate, p.timings)
+    saveDelegate(p.swap ? p.swap.delegate : this.delegate, p.timings)
+    console.info('Hand tracking delegate:', p.swap ? p.swap.delegate : this.delegate, p.timings)
   }
 
   /**
-   * Continuous processing loop: one hand + pose inference per new video frame.
+   * Processing loop: one hand + pose inference per NEW camera frame. requestVideoFrameCallback fires once per frame
+   * the camera delivers, right when it arrives; the old requestAnimationFrame loop ran on screen refreshes and, with a
+   * webcam stream, often processed the same camera frame two or three times (measured 2026-10-21: 49 "frames"/s sent
+   * to the server from a 25 fps camera), wasting tracking time and repeating frames in the sign. While a frame is
+   * being processed, newer ones replace older ones, so tracking always works on the latest frame.
    */
   _processVideoLoop() {
     if (!this.isTracking || !this.videoElement) return
-
     const video = this.videoElement
-    if (video.readyState >= 2 && !video.paused && video.currentTime !== this.lastVideoTime) {
-      this.lastVideoTime = video.currentTime
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      const onFrame = (_now, meta) => {
+        if (!this.isTracking || this.videoElement !== video) return
+        this._processFrame(video, meta?.presentedFrames)
+        this.videoFrameHandle = video.requestVideoFrameCallback(onFrame)
+      }
+      this.videoFrameHandle = video.requestVideoFrameCallback(onFrame)
+      return
+    }
+    // older browsers: poll on animation frames, skipping frames whose video time did not change
+    const poll = () => {
+      if (!this.isTracking || this.videoElement !== video) return
+      if (video.currentTime !== this.lastVideoTime) {
+        this.lastVideoTime = video.currentTime
+        this._processFrame(video)
+      }
+      this.animationFrameId = requestAnimationFrame(poll)
+    }
+    this.animationFrameId = requestAnimationFrame(poll)
+  }
+
+  _processFrame(video, presented) {
+    if (video.readyState < 2 || video.paused) return
+    if (presented != null) {
+      if (presented === this.lastPresented) return // the same camera frame again
+      this.lastPresented = presented
+    }
+    {
       // Landmarkers require strictly increasing timestamps
       const timestamp = Math.max(Math.round(performance.now()), this.lastTimestamp + 1)
       this.lastTimestamp = timestamp
       try {
         const started = performance.now()
         const hands = this.handLandmarker.detectForVideo(video, timestamp)
-        // The body moves slowly: pose every other frame halves its cost and keeps hands at full rate; when
-        // tracking is the bottleneck (above POSE_SLOW_MS per frame) every third frame
+        // Pose on every frame when tracking is fast (a discrete GPU: ~20 ms for hands + pose), so the body points and
+        // the hand-to-shoulder features are never a frame old; on slower machines every other frame (the body moves
+        // slowly), every third above POSE_SLOW_MS
         this.frameCount = (this.frameCount || 0) + 1
-        const poseEvery = this.inferenceMs > POSE_SLOW_MS ? 3 : 2
-        if (this.frameCount % poseEvery === 1 || !this.lastPose) {
+        if (this.inferenceMs > POSE_SLOW_MS) this.poseEvery = 3
+        else if (this.inferenceMs > POSE_BACK_MS || !this.poseEvery) this.poseEvery = 2
+        else if (this.inferenceMs < POSE_FAST_MS) this.poseEvery = 1
+        else if (this.poseEvery === 3) this.poseEvery = 2
+        const poseEvery = this.poseEvery
+        if (poseEvery === 1 || this.frameCount % poseEvery === 1 || !this.lastPose) {
           this.lastPose = this.poseLandmarker.detectForVideo(video, timestamp)
         }
         const pose = this.lastPose
         const spent = performance.now() - started
         this.inferenceMs = ema(this.inferenceMs, spent)
-        this._probeDelegate(spent)
+        this._probeDelegate(spent, (hands.landmarks || []).length > 0)
         const dt = this.lastFrameAt ? (timestamp - this.lastFrameAt) / 1000 : 0
         this.lastFrameAt = timestamp
         if (dt > 0) this.fps = ema(this.fps, 1 / dt)
@@ -361,6 +473,8 @@ class HandTrackerService {
             trackingFps: Math.round(this.fps || 0),
             inferenceMs: Math.round(this.inferenceMs || 0),
             delegate: this.delegate,
+            gpu: browserGpu().name,
+            integratedGpu: browserGpu().integrated,
             camera: this.stream?.getVideoTracks?.()[0]?.label || ''
           }
         })
@@ -368,8 +482,6 @@ class HandTrackerService {
         console.warn('Frame processing exception:', err)
       }
     }
-
-    this.animationFrameId = requestAnimationFrame(() => this._processVideoLoop())
   }
 
   /**
@@ -390,6 +502,12 @@ class HandTrackerService {
       cancelAnimationFrame(this.animationFrameId)
       this.animationFrameId = null
     }
+    if (this.videoFrameHandle != null && this.videoElement?.cancelVideoFrameCallback) {
+      this.videoElement.cancelVideoFrameCallback(this.videoFrameHandle)
+    }
+    this.videoFrameHandle = null
+    this.lastPresented = null
+    this.poseEvery = 0
 
     if (this.stream) {
       this.stream.getTracks().forEach((track) => track.stop())
@@ -520,4 +638,5 @@ class HandTrackerService {
 }
 
 export const handTracker = new HandTrackerService()
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__mudraTracker = handTracker // dev diagnostics only
 export default handTracker
