@@ -69,6 +69,7 @@ export default function PracticePage({ targetSignId = 'HELLO', onNavigate }) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    handTracker.fitCanvas(canvas, results)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {

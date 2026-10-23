@@ -516,6 +516,19 @@ class HandTrackerService {
   }
 
   /**
+   * Gives an overlay canvas the camera picture's own size. Video and canvas are both cropped to their box
+   * (object-fit: cover), so a 4:3 canvas over a 16:9 picture (1280x720, or a camera that ignores 640x480) would
+   * draw the skeleton beside the hands.
+   */
+  fitCanvas(canvas, results) {
+    const { width, height } = results || {}
+    if (canvas && width > 0 && height > 0 && (canvas.width !== width || canvas.height !== height)) {
+      canvas.width = width
+      canvas.height = height
+    }
+  }
+
+  /**
    * Renders the upper-body pose as a faint guide behind the hands.
    */
   drawPose(ctx, poseLandmarks, width, height, mirror = true) {

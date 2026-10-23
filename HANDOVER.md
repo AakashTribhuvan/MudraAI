@@ -1143,6 +1143,18 @@ that need the model or landmark data skip automatically when those files are mis
 
 ## 21. Change log (newest first)
 
+### 2026-10-23 · Skeleton overlay follows the camera's picture size (pushed after `3d653ae`)
+- Owner: "hands are not tracking the nodes properly". The owner's Chrome now runs on the RTX (restarted 13:10;
+  13-29 ms per frame, 15-35 fps), but sign segments had a hand in 40-85% and both hands in 0-30% of frames.
+- Bug fixed: the overlay canvas was always 640x480 while the video could be 16:9 (the 1280x720 option, or a camera
+  that ignores 640x480); both are cropped to the panel, so the skeleton was drawn beside the hands.
+  `handTracker.fitCanvas(canvas, results)` gives the canvas the picture's size, on Communicate, Practice, Teach a sign
+  and the lesson camera (checked: 1280x720 camera -> 1280x720 canvas; before 640x480).
+- Measured, not kept: hand confidences 0.5 -> 0.3 (detection, presence, tracking) on the 24-sign fake webcam: any hand
+  86.3 -> 89.1%, both hands 56.6 -> 58.6% of sign frames, one extra wrong word; training extraction also used 0.5.
+  The test videos' signers show both hands in ~57% of sign frames, so one-handed signs keep that number below 100%.
+- New `tools/live_benchmark/bench_hands.py` (hand detection share per bench run). Tests: frontend 51, build OK.
+
 ### 2026-10-23 · Live recognition: same model (v15b), better live path (pushed after `8f278c3`)
 - Owner: signs often need 2-3 tries; only re-teaching a sign makes it work; no new model wanted. Found:
   (1) the owner's Chrome still ran since 21 Oct 19:43 on the Intel UHD (56-138 ms per frame, 5-7 frames/s at the

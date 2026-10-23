@@ -415,6 +415,7 @@ export default function CommunicatePage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    handTracker.fitCanvas(canvas, results)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     const hasHands = results.multiHandLandmarks && results.multiHandLandmarks.length > 0

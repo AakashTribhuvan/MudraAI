@@ -23,6 +23,7 @@ python tools/live_benchmark/make_fake_cam.py 8            # 8 held-out INCLUDE t
 python tools/live_benchmark/make_fake_cam.py 8 12 fakecam12   # same at 12 fps (a webcam in dim light)
 node tools/live_benchmark/bench_cam.mjs run1 GPU 36       # label, delegate preset, seconds; FLAGS="--force_high_performance_gpu", CAMDIR=fakecam12
 python tools/live_benchmark/bench_score.py run1           # tracking fps / ms, signs right / wrong, sign end -> word latency (CAMDIR as for the run)
+python tools/live_benchmark/bench_hands.py run1 run2      # share of sign frames with a hand / both hands (server log)
 node tools/live_benchmark/gpu_probe.mjs                   # which GPU Chrome draws with
 node tools/live_benchmark/cam_caps.mjs                    # the real webcam's capabilities (turns it on for ~2 s, keeps no image)
 ```
